@@ -1,0 +1,1 @@
+# dict of {name: plugin_instance }
