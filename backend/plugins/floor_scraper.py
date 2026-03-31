@@ -33,9 +33,9 @@ FLOOR_SYSTEM_CONFIG = {
     "requires_login": True,
     "is_spa": False,
     "login": {
-        "url": "https://senatefloor/floor/login",
-        "username_selector": "#username",
-        "password_selector": "#password",
+        "url": "https://senatefloor/floor/Accounts/Login?ReturnUrl=%2ffloor",
+        "username_selector": "#Username",
+        "password_selector": "#Password",
         "submit_selector": "button[type='submit']",
         "post_login_wait": "networkidle",
     },
@@ -54,7 +54,8 @@ FLOOR_SYSTEM_CONFIG = {
 }
 
 # ← Change this to FLOOR_SYSTEM_CONFIG on Monday
-ACTIVE_CONFIG = CONGRESS_GOV_CONFIG
+# ACTIVE_CONFIG = CONGRESS_GOV_CONFIG
+ACTIVE_CONFIG = FLOOR_SYSTEM_CONFIG
 
 
 class FloorScraperPlugin(BasePlugin):

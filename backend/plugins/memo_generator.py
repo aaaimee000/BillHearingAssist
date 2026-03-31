@@ -9,6 +9,9 @@ import os
 from pathlib import Path
 from .base import BasePlugin
 
+# Load environment variables from .env file
+from dotenv import load_dotenv
+load_dotenv()
 
 MEMO_PROMPT_TEMPLATE = """You are a legislative assistant advising a Member of Senate on issues of this Bill.
 
@@ -48,9 +51,11 @@ class MemoPlugin(BasePlugin):
         transcript = inputs.get("transcript", "")
         bill_id = inputs.get("bill_id", "unknown")
 
-        api_key = os.getenv("ANTHROPIC_API_KEY", "")
+        # api_key = os.getenv("ANTHROPIC_API_KEY", "")
+        api_key = os.getenv("OPENAI_API_KEY", "")
+
         if not api_key:
-            return {"error": "ANTHROPIC_API_KEY environment variable not set", "memo": ""}
+            return {"error": "OPENAI_API_KEY environment variable not set", "memo": ""}
 
         # Step 1: Extract text from each PDF
         testimonies_text = ""
@@ -94,20 +99,43 @@ class MemoPlugin(BasePlugin):
             transcript=transcript,
         )
 
-        # Step 3: Call Claude API
+        # # Step 3: Call Claude API
+        # try:
+        #     import anthropic
+        #     client = anthropic.Anthropic(api_key=api_key)
+        #     message = client.messages.create(
+        #         model="claude-sonnet-4-6",
+        #         max_tokens=4096,
+        #         messages=[{"role": "user", "content": prompt}],
+        #     )
+        #     memo_text = message.content[0].text
+        # except ImportError:
+        #     return {"error": "Anthropic SDK not installed. Run: pip install anthropic", "memo": ""}
+        # except Exception as e:
+        #     return {"error": f"Claude API call failed: {str(e)}", "memo": ""}
+        
+        # Step 3: Call OPENAI API
         try:
-            import anthropic
-            client = anthropic.Anthropic(api_key=api_key)
-            message = client.messages.create(
-                model="claude-sonnet-4-6",
-                max_tokens=4096,
-                messages=[{"role": "user", "content": prompt}],
+            from openai import OpenAI
+
+            client = OpenAI(api_key=api_key)
+            response = client.responses.create(
+                model="gpt-5.4-nano",
+                input=prompt,
+                max_output_tokens=4096,
             )
-            memo_text = message.content[0].text
+            memo_text = response.output_text
+
         except ImportError:
-            return {"error": "Anthropic SDK not installed. Run: pip install anthropic", "memo": ""}
+            return {
+                "error": "OpenAI SDK not installed. Run: pip install openai",
+                "memo": ""
+            }
         except Exception as e:
-            return {"error": f"Claude API call failed: {str(e)}", "memo": ""}
+            return {
+                "error": f"OpenAI API call failed: {str(e)}",
+                "memo": ""
+            }
 
         # Step 4: Save memo to disk
         memo_dir = Path(f"storage/memos/{bill_id}")
