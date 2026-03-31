@@ -27,8 +27,8 @@ from plugins.registry import REGISTRY
 
 app = FastAPI(
     title="Legislative Analysis Tool",
-    description="Downloads MGA bill documents and generates memos using Claude AI",
-    version="2.0.0",
+    description="Downloads MGA Floor System testimony and generates memos using AI",
+    version="3.0.0",
 )
 
 app.add_middleware(
@@ -53,10 +53,11 @@ class PluginInputs(BaseModel):
 
 
 class FullPipelineRequest(BaseModel):
-    bill_id:      str           # used for naming output files
-    youtube_url:  str  = ""    # kept for backwards compat, not used for MGA
-    transcript:   str  = ""    # manual transcript pasted by staff (Option B)
-    pdf_paths:    List[str] = []  # if frontend already has paths from scraper step
+    bill_id:           str              # e.g. "HB1532"
+    youtube_url:       str  = ""        # kept for backwards compat
+    transcript:        str  = ""        # manual transcript paste (optional)
+    pdf_paths:         List[str] = []   # pre-downloaded paths (skip re-scraping)
+    testimony_records: List[dict] = []  # pre-scraped metadata (skip re-scraping)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -65,24 +66,15 @@ class FullPipelineRequest(BaseModel):
 
 @app.get("/")
 def health_check():
-    """
-    Always returns OK. First thing to check when something breaks.
-    Test with: curl http://localhost:8000/
-    or just open http://localhost:8000/ in your browser.
-    """
     return {
-        "status": "ok",
-        "message": "Legislative Analysis Tool is running",
-        "plugins_available": list(REGISTRY.keys()),
+        "status":             "ok",
+        "message":            "Legislative Analysis Tool is running",
+        "plugins_available":  list(REGISTRY.keys()),
     }
 
 
 @app.get("/plugins")
 def list_plugins():
-    """
-    Returns all registered plugins with names, descriptions, and what inputs they expect.
-    The frontend reads this to confirm the backend is properly configured.
-    """
     return {
         "plugins": [
             {
@@ -97,16 +89,6 @@ def list_plugins():
 
 @app.post("/run/{plugin_name}")
 async def run_plugin(plugin_name: str, body: PluginInputs):
-    """
-    Generic endpoint: runs any plugin by name.
-
-    Examples:
-      POST /run/scraper
-      Body: {"inputs": {"bill_number": "hb1532", "session": "2026RS"}}
-
-      POST /run/memo
-      Body: {"inputs": {"pdf_paths": ["storage/..."], "transcript": "...", "bill_id": "hb1532"}}
-    """
     plugin = REGISTRY.get(plugin_name)
     if not plugin:
         raise HTTPException(
@@ -126,29 +108,21 @@ async def run_plugin(plugin_name: str, body: PluginInputs):
 @app.post("/pipeline/full")
 async def run_full_pipeline(body: FullPipelineRequest):
     """
-    Runs the full pipeline. For MGA this means:
-
+    Full pipeline:
       Step 1 — SCRAPE
-        Download the bill text PDF (and written testimony PDFs if already available).
-        If the frontend already passed pdf_paths from an earlier scraper call,
-        skip re-scraping and use those directly.
+        Logs into Floor System, reads Committee Testimony tab,
+        downloads all PDFs, returns testimony_records metadata.
+        Skipped if frontend already provides pdf_paths + testimony_records.
 
-      Step 2 — TRANSCRIPT
-        If a manual transcript was pasted by staff, use that.
-        If a youtube_url was given, attempt auto-transcription.
-        If neither, skip — the memo will be based on written testimony only.
-        This step NEVER blocks the pipeline. Transcript is always optional.
+      Step 2 — TRANSCRIPT (optional)
+        Uses manual paste if provided. YouTube auto-transcription if URL given.
+        If neither, memo is built from testimony only — that's fine.
 
       Step 3 — MEMO
-        Call Claude API with all available documents + transcript.
-        Always runs, even if step 1 or 2 had problems (graceful fallback).
-
-    IMPORTANT DESIGN DECISION:
-      Each step runs regardless of whether the previous step succeeded.
-      We collect errors and include them in the response, but we never
-      abort early. A memo from partial data is better than no memo.
+        Passes PDFs + testimony_records + transcript to memo generator.
+        Always runs. Returns error message if truly nothing is available.
     """
-    bill_id = body.bill_id.strip()
+    bill_id = body.bill_id.strip().upper()
 
     pipeline_result = {
         "bill_id":    bill_id,
@@ -157,90 +131,86 @@ async def run_full_pipeline(body: FullPipelineRequest):
         "errors":     [],
     }
 
-    # ── Step 1: Scrape / use pre-downloaded PDFs ──────────────────────────────
-    # If the frontend already called /run/scraper and has pdf_paths,
-    # we skip re-scraping to avoid downloading the same files twice.
-    if body.pdf_paths:
-        print(f"[Pipeline] Step 1: Using {len(body.pdf_paths)} pre-downloaded PDF(s) from frontend")
-        pdf_paths = body.pdf_paths
+    # ── Step 1: Scrape ────────────────────────────────────────────────────────
+    if body.pdf_paths and body.testimony_records:
+        # Frontend already ran the scraper — use what it has, don't re-scrape
+        print(f"[Pipeline] Step 1: Using {len(body.pdf_paths)} pre-downloaded files from frontend")
+        pdf_paths         = body.pdf_paths
+        testimony_records = body.testimony_records
         pipeline_result["steps"]["scraper"] = {
-            "skipped": True,
-            "reason":  "PDF paths provided directly by frontend",
+            "skipped":         True,
+            "reason":          "PDF paths and testimony records provided by frontend",
             "downloaded_files": pdf_paths,
-            "count": len(pdf_paths),
+            "count":           len(pdf_paths),
         }
     else:
-        print(f"[Pipeline] Step 1: Scraping documents for bill '{bill_id}'")
+        print(f"[Pipeline] Step 1: Scraping Floor System for bill '{bill_id}'")
         scraper      = REGISTRY["scraper"]
-        scrape_result = await scraper.run({"bill_number": bill_id, "session": "2026RS"})
+        # bill_id key used — floor_scraper.run() accepts both 'bill_id' and 'bill_number'
+        scrape_result = await scraper.run({"bill_id": bill_id})
         pipeline_result["steps"]["scraper"] = scrape_result
 
         if scrape_result.get("error"):
             pipeline_result["errors"].append(f"Scraper: {scrape_result['error']}")
 
-        pdf_paths = scrape_result.get("downloaded_files", [])
-        print(f"[Pipeline] Downloaded {len(pdf_paths)} document(s)")
+        pdf_paths         = scrape_result.get("downloaded_files", [])
+        testimony_records = scrape_result.get("testimony_records", [])
+        print(f"[Pipeline] Downloaded {len(pdf_paths)} PDFs, {len(testimony_records)} testifiers recorded")
 
     # ── Step 2: Transcript ────────────────────────────────────────────────────
     transcript_text = ""
 
     if body.transcript:
-        # Option B: staff pasted a manual transcript
         transcript_text = body.transcript
         word_count = len(transcript_text.split())
-        print(f"[Pipeline] Step 2: Using manual transcript ({word_count} words)")
+        print(f"[Pipeline] Step 2: Manual transcript ({word_count} words)")
         pipeline_result["steps"]["transcript"] = {
             "source":     "manual_paste",
             "word_count": word_count,
         }
-
     elif body.youtube_url:
-        # Option A: auto-transcribe from YouTube (kept for backwards compat)
-        print(f"[Pipeline] Step 2: Transcribing from YouTube URL")
-        transcriber      = REGISTRY["transcript"]
-        transcript_result = await transcriber.run({
-            "youtube_url": body.youtube_url,
-            "bill_id":     bill_id,
-        })
-        pipeline_result["steps"]["transcript"] = transcript_result
-
-        if transcript_result.get("error"):
-            # IMPORTANT: we log the error but do NOT stop the pipeline
-            pipeline_result["errors"].append(
-                f"Transcript (auto): {transcript_result['error']} — "
-                f"memo will be generated from written testimony only"
-            )
-            print(f"[Pipeline] Transcript failed — continuing without it")
+        print(f"[Pipeline] Step 2: Auto-transcribing YouTube URL")
+        transcriber       = REGISTRY.get("transcript")
+        if not transcriber:
+            pipeline_result["errors"].append("Transcript: 'transcript' plugin not registered")
+            pipeline_result["steps"]["transcript"] = {"skipped": True, "reason": "Plugin not available"}
         else:
-            transcript_text = transcript_result.get("transcript", "")
-            print(f"[Pipeline] Transcript: {transcript_result.get('word_count', 0)} words")
-
+            transcript_result = await transcriber.run({
+                "youtube_url": body.youtube_url,
+                "bill_id":     bill_id,
+            })
+            pipeline_result["steps"]["transcript"] = transcript_result
+            if transcript_result.get("error"):
+                pipeline_result["errors"].append(
+                    f"Transcript: {transcript_result['error']} — continuing without transcript"
+                )
+            else:
+                transcript_text = transcript_result.get("transcript", "")
     else:
-        # No transcript at all — that's fine, memo still generates
-        print("[Pipeline] Step 2: No transcript provided — memo will use written testimony only")
+        print("[Pipeline] Step 2: No transcript — memo will use written testimony only")
         pipeline_result["steps"]["transcript"] = {
             "skipped": True,
-            "reason":  "No transcript provided — memo generated from written testimony only",
+            "reason":  "No transcript provided",
         }
 
     # ── Step 3: Generate Memo ─────────────────────────────────────────────────
-    # This always runs. If we have nothing to work with, the memo plugin
-    # will return a clear error rather than calling Claude with empty content.
-    print(f"[Pipeline] Step 3: Generating memo with Claude API")
+    print(f"[Pipeline] Step 3: Generating memo")
     memo_generator = REGISTRY["memo"]
     memo_result    = await memo_generator.run({
-        "pdf_paths":  pdf_paths,
-        "transcript": transcript_text,
-        "bill_id":    bill_id,
+        "pdf_paths":         pdf_paths,
+        "testimony_records": testimony_records,   # ← KEY: rich metadata passed through
+        "transcript":        transcript_text,
+        "bill_id":           bill_id,
     })
     pipeline_result["steps"]["memo"] = memo_result
 
     if memo_result.get("error"):
         pipeline_result["errors"].append(f"Memo: {memo_result['error']}")
     else:
-        pipeline_result["final_memo"] = memo_result.get("memo", "")
-        print(f"[Pipeline] Memo generated ({len(pipeline_result['final_memo'])} chars)")
+        pipeline_result["final_memo"]  = memo_result.get("memo", "")
+        pipeline_result["testifiers"]  = len(testimony_records)
+        pipeline_result["api_used"]    = memo_result.get("api_used", "unknown")
+        print(f"[Pipeline] Memo: {len(pipeline_result['final_memo'])} chars via {pipeline_result['api_used']}")
 
-    # ── Summary ───────────────────────────────────────────────────────────────
-    print(f"[Pipeline] Complete. Errors: {len(pipeline_result['errors'])}")
+    print(f"[Pipeline] Complete. {len(pipeline_result['errors'])} error(s)")
     return pipeline_result
