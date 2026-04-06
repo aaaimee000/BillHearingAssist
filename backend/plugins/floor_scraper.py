@@ -22,8 +22,8 @@ POSITION CODES (from the Floor System):
 
 URL PATTERN DISCOVERED FROM SCREENSHOTS:
   Login:     https://senatefloor/floor/Accounts/Login?ReturnUrl=%2ffloor
-  Bill page: https://senatefloor/floor/Bills/Details/{bill_id}
-             e.g. https://senatefloor/floor/Bills/Details/HB1532
+  Bill page: https://senatefloor/floor
+             e.g. https://senatefloor/floor
   The "Committee Testimony" tab appears in the bill nav — we click it.
 """
 
@@ -53,7 +53,8 @@ FLOOR_SYSTEM_CONFIG = {
     },
     # Bill detail page — Committee Testimony tab is reached by clicking the tab
     # after landing on the bill's detail page
-    "bill_detail_url": "https://senatefloor/floor/Bills/Details/{bill_id}",
+    # "bill_detail_url": "https://senatefloor/floor/Bills/Details/{bill_id}",
+    "bill_detail_url": "https://senatefloor/floor", 
     # CSS selector for the Committee Testimony tab link in the bill nav
     # From screenshot: the last tab in the nav bar reads "Committee Testimony"
     "testimony_tab_selector": "a:has-text('Committee Testimony')",

@@ -19,7 +19,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List
 
-from plugins.registry import REGISTRY
+from backend.plugins.registry import REGISTRY
 
 # ─────────────────────────────────────────────────────────────────────────────
 # App setup
@@ -214,3 +214,13 @@ async def run_full_pipeline(body: FullPipelineRequest):
 
     print(f"[Pipeline] Complete. {len(pipeline_result['errors'])} error(s)")
     return pipeline_result
+
+# Note: currently when putting in hb1532, the url link is not shown correctly as the floor scraper website url, 
+
+# the updated index html is missing a function where you need to get the written testimony from the corrected url, 
+#and you would also need to get some functions to get the pdf links and download the pdfs, and then you can use the 
+#memo generator to generate the memo. The transcript plugin is optional, you can paste the transcript in the text inbox
+
+#1. the url is incorrect 2. the written testimony download function is mssing, the actual conversation is missing, 
+#4. the model comparison of work too should be added into the AI report and shown it to katie 
+

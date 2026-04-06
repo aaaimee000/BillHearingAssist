@@ -253,7 +253,7 @@
 
 <header>
   <h1>Senate Floor Legislative Analysis Tool</h1>
-  <span>Maryland General Assembly · Senate Staff · Internal Use Only · Requires MGA Network</span>
+  <span>Maryland General Assembly · Senate Staff · Internal Use Only</span>
 </header>
 
 <div class="container">
@@ -290,7 +290,7 @@
           placeholder="hb1532"
           autocomplete="off"
           oninput="updatePreview()"
-          style="text-transform:uppercase;"
+          style="text-transform:lowercase;"
         />
       </div>
       <div class="field" style="flex:0 0 200px;">
@@ -306,7 +306,7 @@
 
     <!-- Live preview -->
     <div class="bill-preview" id="bill-preview">
-      <strong>Looking up:</strong>
+      <strong>Searching for:</strong>
       <span id="bill-preview-text"></span>
       &nbsp;&mdash;&nbsp;
       <span id="bill-preview-url" style="font-size:0.8rem;opacity:0.7;"></span>
@@ -324,17 +324,17 @@
       autocomplete="off"
     />
     <p style="font-size:0.8rem;color:#9ca3af;margin-top:-14px;margin-bottom:20px;">
-      Paste the Committee Media page URL. It will appear as a link for you to watch.
+      Paste the Committee Media page URL. You can optionally paste a transcript below after watching.
     </p>
 
-    <!-- Manual transcript (optional) -->
+    <!-- Optional manual transcript paste -->
     <label for="transcript-input">
       Paste Hearing Transcript
-      <span class="hint">(optional — paste CC captions from the video)</span>
+      <span class="hint">(optional —  copy from the video captions or type key points)</span>
     </label>
     <textarea
       id="transcript-input"
-      placeholder="Leave blank to generate the memo from written testimony only. Or paste the hearing captions here for a richer analysis."
+      placeholder=Paste the hearing transcript here, or leave blank to generate the memo from written testimony only..."
     ></textarea>
 
     <div id="screen1-error" class="alert alert-error hidden"></div>
@@ -468,7 +468,7 @@
 
   // ── Live bill preview ─────────────────────────────────────────────────────
   function updatePreview() {
-    const raw     = document.getElementById("bill-number-input").value.trim().toUpperCase();
+    const raw     = document.getElementById("bill-number-input").value.trim().toLowerCase();
     const session = document.getElementById("session-select").value;
     const preview = document.getElementById("bill-preview");
     const text    = document.getElementById("bill-preview-text");
