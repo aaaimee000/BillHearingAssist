@@ -16,7 +16,7 @@ That's it. The FastAPI backend automatically exposes it at /run/my_new_plugin
 from .mga_scraper import MGAScraperPlugin    # ← practice (mgaleg.maryland.gov)
 
 from .transcript import TranscriptPlugin
-from .memo_generator_old import MemoPlugin
+from .memo_generator import MemoPlugin
 
 REGISTRY = {
     "scraper":    MGAScraperPlugin(),

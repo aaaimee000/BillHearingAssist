@@ -118,7 +118,9 @@ class MGAScraperPlugin(BasePlugin):
         }
 
     async def run(self, inputs: dict) -> dict:
-        bill_number = inputs.get("bill_number", "").strip().lower()
+        # Accept both "bill_number" and "bill_id" keys so the plugin works from
+        # both the /run/scraper endpoint (frontend sends bill_id) and direct calls.
+        bill_number = (inputs.get("bill_number") or inputs.get("bill_id") or "").strip().lower()
         session     = inputs.get("session", "2026RS").strip()
         video_url   = inputs.get("video_url", "").strip()
 
@@ -242,18 +244,54 @@ class MGAScraperPlugin(BasePlugin):
             except requests.RequestException as e:
                 errors.append(f"Failed to download testimony {doc['url']}: {str(e)}")
 
-        # ── Step 3: Build result ──────────────────────────────────────────
+        # ── Step 3: Build testimony_records from downloaded files ────────
+        # MGA public site has no structured testifier table, so we build
+        # lightweight records from filenames. Position code (FAV/UNF/FWA/IMR)
+        # is parsed from the filename when present.
+        position_map = {
+            "FAV": "In Favor",
+            "FWA": "In Favor with Amendments",
+            "UNF": "Opposed",
+            "IMR": "Informational",
+        }
+        testimony_records = []
+        for fp in downloaded_files:
+            stem = Path(fp).stem.upper()
+            # Skip the bill text PDF — it's the bill itself, not testimony
+            if stem.endswith("_TEXT") or stem == bill_number.upper():
+                continue
+            position       = "IMR"
+            position_label = "Informational"
+            for code, label in position_map.items():
+                if code in stem:
+                    position       = code
+                    position_label = label
+                    break
+            testimony_records.append({
+                "name":           Path(fp).stem,
+                "organization":   "—",
+                "position":       position,
+                "position_label": position_label,
+                "testimony_type": "Written",
+                "pdf_filename":   Path(fp).name,
+                "pdf_url":        "",
+            })
+
+        # ── Step 4: Build result ──────────────────────────────────────────
         result = {
-            "downloaded_files": downloaded_files,
-            "documents_found":  documents_found,
-            "errors":           errors,
-            "count":            len(downloaded_files),
-            "bill_number":      bill_number.upper(),
-            "session":          session,
-            "pdf_url":          pdf_url,
-            "testimony_url":    testimony_url,
-            "video_url":        video_url,   # passed through for frontend to display
-            "bill_label":       f"{bill_number.upper()} ({session})",
+            "downloaded_files":  downloaded_files,
+            "testimony_records": testimony_records,
+            "documents_found":   documents_found,
+            "errors":            errors,
+            "count":             len(downloaded_files),
+            "total_testifiers":  len(testimony_records),
+            "bill_id":           bill_number.upper(),
+            "bill_number":       bill_number.upper(),
+            "session":           session,
+            "pdf_url":           pdf_url,
+            "testimony_url":     testimony_url,
+            "video_url":         video_url,
+            "bill_label":        f"{bill_number.upper()} ({session})",
         }
 
         # If we found nothing at all, give a helpful error

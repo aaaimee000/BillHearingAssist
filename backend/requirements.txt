@@ -1,9 +1,10 @@
-#To streamline the input, we put dependencies in this req.txt file 
+#To streamline the input, we put dependencies in this req.txt file
 fastapi==0.111.0
 uvicorn==0.29.0
 pydantic==2.7.1
 python-multipart==0.0.9
 anthropic==0.25.0
+openai>=1.30.0
 playwright==1.44.0
 pymupdf==1.24.4
 openai-whisper==20231117
@@ -11,3 +12,7 @@ yt-dlp==2024.5.27
 pytest==8.2.0
 pytest-asyncio==0.23.6
 httpx==0.27.0
+python-dotenv>=1.0.0
+python-docx>=1.1.2
+google-api-python-client>=2.130.0
+google-auth>=2.29.0
