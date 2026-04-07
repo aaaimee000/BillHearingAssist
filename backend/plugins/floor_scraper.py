@@ -151,7 +151,7 @@ def try_json_api(
     Try every known and guessed JSON endpoint pattern to get testimony records.
     Returns a list of testimony dicts (may be empty if all endpoints fail).
 
-    HOW TO ADD A NEW ENDPOINT (for interns):
+    HOW TO ADD A NEW ENDPOINT:
       1. Open DevTools → Network → XHR
       2. Click the "Committee Testimony" tab for a bill
       3. Find the XHR request that returns testimony data
@@ -252,7 +252,7 @@ class FloorScraperPlugin(BasePlugin):
         }
 
     async def run(self, inputs: dict) -> dict:
-        bill_id      = (inputs.get("bill_id") or inputs.get("bill_number") or "").strip().upper()
+        bill_id      = (inputs.get("bill_id") or inputs.get("bill_number") or "").strip()
         session_year = inputs.get("session", "2026RS").strip()
 
         if not bill_id:
