@@ -23,6 +23,91 @@ from pathlib import Path
 from datetime import datetime
 from typing import List
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PDF Testifier Extractor
+# ─────────────────────────────────────────────────────────────────────────────
+
+def extract_testifiers_from_combined_pdf(pdf_path: str) -> list[dict]:
+    """
+    Extract individual testifier records from a combined testimony PDF.
+
+    The Floor System's combined testimony PDF format (verified from sample):
+    Each testimony begins with a cover page containing exactly:
+        {Document Title}
+        Uploaded by: {Testifier Name}
+        Position: {FAV | UNF | FWA | IMR}
+
+    We scan page-by-page looking for this pattern. When both "Uploaded by:"
+    and "Position:" appear on the same page, that page is a cover page.
+    """
+    _POS_LABELS = {
+        "FAV": "In Favor",
+        "FWA": "In Favor with Amendments",
+        "UNF": "Opposed",
+        "IMR": "Informational",
+    }
+
+    try:
+        import fitz  # PyMuPDF
+        doc   = fitz.open(pdf_path)
+        pages = [page.get_text() for page in doc]
+        doc.close()
+    except ImportError:
+        return []
+    except Exception as e:
+        print(f"[PDFAnalyzer] Cannot read {pdf_path}: {e}")
+        return []
+
+    uploaded_re = re.compile(r'Uploaded\s+by\s*:\s*(.+)', re.IGNORECASE)
+    position_re = re.compile(
+        r'Position\s*:\s*'
+        r'(FAV(?:ORABLE)?(?:\s+WITH\s+AMENDMENTS)?'
+        r'|UNF(?:AVORABLE)?'
+        r'|FWA|IMR|INFO(?:RMATIONAL)?)',
+        re.IGNORECASE
+    )
+
+    def normalize(raw: str) -> str:
+        r = raw.upper().strip()
+        if "AMEND" in r or r == "FWA":
+            return "FWA"
+        if "FAV" in r:
+            return "FAV"
+        if "UNF" in r or "OPPOS" in r:
+            return "UNF"
+        return "IMR"
+
+    records    = []
+    seen_names = set()
+
+    for page_text in pages:
+        name = ""
+        pos  = ""
+        for line in page_text.split("\n"):
+            m_up = uploaded_re.search(line)
+            m_po = position_re.search(line)
+            if m_up:
+                name = m_up.group(1).strip()
+            if m_po:
+                pos = normalize(m_po.group(1))
+
+        if name and pos and name.lower() not in seen_names:
+            seen_names.add(name.lower())
+            records.append({
+                "name":           name,
+                "organization":   "—",
+                "position":       pos,
+                "position_label": _POS_LABELS[pos],
+                "testimony_type": "Written",
+                "pdf_filename":   Path(pdf_path).name,
+                "pdf_url":        "",
+                "source":         "pdf_extraction",
+            })
+
+    print(f"[PDFAnalyzer] Extracted {len(records)} testifier(s) from {Path(pdf_path).name}")
+    return records
+
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -178,36 +263,42 @@ async def upload_testimony(
             file_path.write_bytes(content)
             saved_paths.append(str(file_path))
 
-            # Priority order for position:
-            #   1. User-selected via UI dropdown (most accurate)
-            #   2. Filename convention fallback (e.g. "JohnSmith_FAV.pdf")
-            #   3. Default to IMR
-            position = pos_list[i] if i < len(pos_list) else ""
-            if position not in POSITION_LABELS:
-                # Fallback: scan filename for position code
-                fname_upper = Path(safe_name).stem.upper()
-                position = next(
-                    (code for code in POSITION_LABELS if code in fname_upper),
-                    "IMR"
-                )
+            # ── Try to extract individual testifiers from the PDF ─────────────
+            # The Floor System combined PDF has a cover page per testimony:
+            #   {Title}
+            #   Uploaded by: {Name}
+            #   Position: FAV / UNF / FWA / IMR
+            extracted = extract_testifiers_from_combined_pdf(str(file_path))
 
-            position_label = POSITION_LABELS.get(position, "Informational")
+            if extracted:
+                # Combined PDF: use extracted records (accurate name + position per testifier)
+                testimony_records.extend(extracted)
+            else:
+                # Single testimony PDF: use the user-selected position from the UI dropdown
+                # Priority: 1) user dropdown  2) filename convention  3) default IMR
+                position = pos_list[i] if i < len(pos_list) else ""
+                if position not in POSITION_LABELS:
+                    fname_upper = Path(safe_name).stem.upper()
+                    position = next(
+                        (code for code in POSITION_LABELS if code in fname_upper),
+                        "IMR"
+                    )
 
-            testimony_records.append({
-                "name":           Path(safe_name).stem,
-                "organization":   "—",
-                "position":       position,
-                "position_label": position_label,
-                "testimony_type": "Written",
-                "pdf_filename":   safe_name,
-                "pdf_url":        "",
-                "source":         "manual_upload",
-            })
+                testimony_records.append({
+                    "name":           Path(safe_name).stem,
+                    "organization":   "—",
+                    "position":       position,
+                    "position_label": POSITION_LABELS.get(position, "Informational"),
+                    "testimony_type": "Written",
+                    "pdf_filename":   safe_name,
+                    "pdf_url":        "",
+                    "source":         "manual_upload",
+                })
 
         except Exception as e:
             errors.append(f"Error saving {upload.filename}: {str(e)}")
 
-    print(f"[Upload] {len(saved_paths)} PDFs saved for {bill_id}")
+    print(f"[Upload] {len(saved_paths)} PDFs saved, {len(testimony_records)} testifier(s) for {bill_id}")
 
     return {
         "downloaded_files":  saved_paths,

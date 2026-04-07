@@ -12,15 +12,15 @@ To add a new plugin:
 That's it. The FastAPI backend automatically exposes it at /run/my_new_plugin
 """
 
-# from .floor_scraper import FloorScraperPlugin  # ← uncomment Monday for Floor System
-from .mga_scraper import MGAScraperPlugin    # ← practice (mgaleg.maryland.gov)
+from .floor_scraper import FloorScraperPlugin  # Senate Floor System (requires Senate network)
+from .mga_scraper import MGAScraperPlugin      # Public fallback (mgaleg.maryland.gov)
 
 from .transcript import TranscriptPlugin
 from .memo_generator import MemoPlugin
 
 REGISTRY = {
-    "scraper":    MGAScraperPlugin(),
-    # "scraper":    FloorScraperPlugin(),
+    "scraper":    FloorScraperPlugin(),        # ← Floor System (login required on Senate network)
+    # "scraper":  MGAScraperPlugin(),          # ← swap in for offline/dev testing
     "transcript": TranscriptPlugin(),
     "memo":       MemoPlugin(),
     # "stance":  StanceDetectorPlugin(),   ← uncomment when ready
