@@ -1,0 +1,10 @@
+{
+  "bill_id": "SB602",
+  "session": "2026RS",
+  "generated_at": "2026-04-10T14:13:36.198928",
+  "testifiers": 9,
+  "pdf_count": 9,
+  "api_used": "openai",
+  "memo_style": "full_analysis",
+  "drive_url": ""
+}

@@ -3,8 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Senate Floor Legislative Analysis Tool</title>
+  <title>Senate Legislative Analysis Tool</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
+    /* ── Reset & base ────────────────────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
@@ -14,147 +16,353 @@
       min-height: 100vh;
     }
 
+    /* ── Header ──────────────────────────────────────────────────────────── */
     header {
       background: #7a1a1a;
       color: #fff;
-      padding: 18px 32px;
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
     }
-    header h1 { font-size: 1.3rem; font-weight: 600; }
-    header span { font-size: 0.82rem; opacity: 0.7; display: block; margin-top: 3px; }
+    header h1 { font-size: 1.2rem; font-weight: 600; }
+    header span { font-size: 0.78rem; opacity: 0.65; display: block; margin-top: 2px; }
 
-    .container { max-width: 920px; margin: 36px auto; padding: 0 20px; }
+    /* ── Top navigation ───────────────────────────────────────────────────── */
+    .top-nav {
+      background: #fff;
+      border-bottom: 2px solid #e5e7eb;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .top-nav-inner {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 0 20px;
+      display: flex;
+      gap: 0;
+    }
+    .nav-tab {
+      padding: 13px 22px;
+      font-size: 0.88rem;
+      font-weight: 500;
+      color: #6b7280;
+      background: none;
+      border: none;
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+      margin-bottom: -2px;
+      transition: color 0.15s, border-color 0.15s;
+      white-space: nowrap;
+    }
+    .nav-tab:hover { color: #7a1a1a; }
+    .nav-tab.active { color: #7a1a1a; border-bottom-color: #7a1a1a; font-weight: 600; }
 
+    /* ── Layout container ────────────────────────────────────────────────── */
+    .container { max-width: 980px; margin: 30px auto; padding: 0 20px; }
+
+    /* ── Step tabs ────────────────────────────────────────────────────────── */
     .steps {
       display: flex;
-      margin-bottom: 28px;
+      margin-bottom: 24px;
       border-radius: 10px;
       overflow: hidden;
       border: 1px solid #dde2eb;
     }
     .step-tab {
       flex: 1;
-      padding: 13px 10px;
+      padding: 12px 8px;
       text-align: center;
       background: #fff;
-      font-size: 0.82rem;
+      font-size: 0.8rem;
       font-weight: 500;
       color: #6b7280;
       border-right: 1px solid #dde2eb;
     }
     .step-tab:last-child { border-right: none; }
     .step-tab.active { background: #7a1a1a; color: #fff; }
-    .step-tab.done   { background: #e8f4ec; color: #1a6b3a; }
-    .step-tab .num   { display: block; font-size: 1.1rem; font-weight: 700; margin-bottom: 2px; }
+    .step-tab.done   { background: #f0fdf4; color: #166534; }
+    .step-tab .num   { display: block; font-size: 1rem; font-weight: 700; margin-bottom: 2px; }
 
+    /* ── Card ─────────────────────────────────────────────────────────────── */
     .card {
       background: #fff;
       border-radius: 12px;
       border: 1px solid #dde2eb;
       padding: 28px 32px;
     }
-    .card h2  { font-size: 1.15rem; margin-bottom: 6px; color: #5a0000; }
-    .card p.sub { color: #6b7280; font-size: 0.88rem; margin-bottom: 24px; line-height: 1.5; }
+    .card h2  { font-size: 1.1rem; margin-bottom: 5px; color: #5a0000; }
+    .card p.sub { color: #6b7280; font-size: 0.86rem; margin-bottom: 22px; line-height: 1.55; }
 
+    /* ── Form elements ────────────────────────────────────────────────────── */
     label {
       display: block;
-      font-size: 0.88rem;
+      font-size: 0.86rem;
       font-weight: 600;
-      margin-bottom: 6px;
+      margin-bottom: 5px;
       color: #374151;
     }
     label .hint { font-weight: 400; color: #9ca3af; margin-left: 6px; }
 
     input[type="text"], select, textarea {
       width: 100%;
-      padding: 11px 14px;
+      padding: 10px 13px;
       border: 1px solid #d1d5db;
       border-radius: 8px;
-      font-size: 0.95rem;
+      font-size: 0.92rem;
       outline: none;
       transition: border 0.2s;
-      margin-bottom: 20px;
+      margin-bottom: 18px;
       background: #fff;
       font-family: inherit;
+      color: #1a1a2e;
     }
     input[type="text"]:focus, select:focus, textarea:focus { border-color: #7a1a1a; }
-    textarea { resize: vertical; min-height: 110px; }
+    textarea { resize: vertical; min-height: 100px; }
 
+    /* ── Buttons ──────────────────────────────────────────────────────────── */
     .btn {
-      display: inline-block;
-      padding: 11px 26px;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 10px 22px;
       border-radius: 8px;
-      font-size: 0.93rem;
+      font-size: 0.9rem;
       font-weight: 600;
       cursor: pointer;
       border: none;
-      transition: opacity 0.15s;
+      transition: opacity 0.15s, background 0.15s;
+      text-decoration: none;
     }
-    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
     .btn-primary   { background: #7a1a1a; color: #fff; }
     .btn-primary:hover:not(:disabled) { background: #5a1212; }
     .btn-secondary { background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; }
     .btn-secondary:hover:not(:disabled) { background: #e5e7eb; }
+    .btn-sm { padding: 7px 14px; font-size: 0.82rem; }
+    .btn-outline { background: transparent; color: #7a1a1a; border: 1px solid #7a1a1a; }
+    .btn-outline:hover:not(:disabled) { background: #fdf5f5; }
 
+    /* ── Alerts ───────────────────────────────────────────────────────────── */
     .alert {
-      padding: 13px 16px;
+      padding: 12px 16px;
       border-radius: 8px;
-      margin-bottom: 18px;
-      font-size: 0.88rem;
-      line-height: 1.5;
+      margin-bottom: 16px;
+      font-size: 0.86rem;
+      line-height: 1.55;
     }
     .alert-info    { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; }
     .alert-error   { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
     .alert-success { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
     .alert-warning { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; }
 
+    /* ── Input mode toggle (Auto / Upload) ─────────────────────────────────── */
+    .mode-toggle {
+      display: flex;
+      background: #f3f4f6;
+      border-radius: 9px;
+      padding: 4px;
+      gap: 4px;
+      margin-bottom: 22px;
+      width: fit-content;
+    }
+    .mode-btn {
+      padding: 8px 20px;
+      border-radius: 7px;
+      border: none;
+      font-size: 0.86rem;
+      font-weight: 600;
+      cursor: pointer;
+      color: #6b7280;
+      background: transparent;
+      transition: background 0.15s, color 0.15s;
+    }
+    .mode-btn.active { background: #fff; color: #7a1a1a; box-shadow: 0 1px 4px rgba(0,0,0,0.12); }
+
+    /* ── Drop zone ────────────────────────────────────────────────────────── */
+    .drop-zone {
+      border: 2px dashed #d1d5db;
+      border-radius: 10px;
+      padding: 32px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      margin-bottom: 18px;
+    }
+    .drop-zone:hover, .drop-zone.drag-over {
+      border-color: #7a1a1a;
+      background: #fdf5f5;
+    }
+    .drop-zone .dz-icon { font-size: 2.2rem; margin-bottom: 8px; }
+    .drop-zone .dz-text { font-weight: 600; color: #374151; font-size: 0.95rem; }
+    .drop-zone .dz-hint { font-size: 0.8rem; color: #9ca3af; margin-top: 4px; }
+
+    .file-list { margin-bottom: 18px; }
+    .file-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 7px;
+      margin-bottom: 6px;
+      font-size: 0.84rem;
+      flex-wrap: wrap;
+    }
+    .file-name { flex: 1; min-width: 120px; color: #374151; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .file-size { color: #9ca3af; white-space: nowrap; }
+    .file-position {
+      padding: 4px 8px;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      background: #fff;
+      color: #374151;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .file-position:focus { outline: none; border-color: #7a1a1a; }
+    .file-remove {
+      border: none; background: none; color: #9ca3af; cursor: pointer;
+      font-size: 1.1rem; line-height: 1; padding: 0 2px;
+    }
+    .file-remove:hover { color: #991b1b; }
+    .upload-hint {
+      font-size: 0.78rem; color: #9ca3af; margin-bottom: 14px; margin-top: -4px;
+    }
+
+    /* ── Fallback upload banner (Screen 2) ───────────────────────────────── */
+    .fallback-banner {
+      background: #fffbeb;
+      border: 1px solid #fbbf24;
+      border-radius: 10px;
+      padding: 16px 20px;
+      margin-bottom: 18px;
+    }
+    .fallback-banner p {
+      margin: 0 0 12px;
+      font-size: 0.88rem;
+      color: #92400e;
+    }
+    .fallback-drop-zone {
+      border: 2px dashed #fbbf24;
+      border-radius: 8px;
+      padding: 16px;
+      text-align: center;
+      background: #fef3c7;
+      cursor: pointer;
+      font-size: 0.84rem;
+      color: #78350f;
+      margin-bottom: 10px;
+      transition: background 0.15s;
+    }
+    .fallback-drop-zone:hover { background: #fde68a; }
+    .fallback-file-list { margin-bottom: 10px; }
+
+    /* ── Bill preview strip ───────────────────────────────────────────────── */
     .bill-preview {
       display: none;
       background: #fff8f0;
       border: 1px solid #fcd9a0;
       border-radius: 8px;
-      padding: 10px 14px;
-      margin-bottom: 20px;
-      font-size: 0.87rem;
+      padding: 9px 13px;
+      margin-bottom: 18px;
+      font-size: 0.84rem;
       color: #7a3a00;
     }
 
-    /* ── Testimony table (screen 2) ──────────────────────────────────── */
-    .testimony-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 12px;
+    /* ── Memo style selector ──────────────────────────────────────────────── */
+    .style-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-bottom: 18px;
     }
-    .testimony-header h3 {
-      font-size: 1rem;
-      color: #5a0000;
-      font-weight: 600;
+    .style-card {
+      border: 2px solid #e5e7eb;
+      border-radius: 9px;
+      padding: 12px 14px;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
     }
-    .testimony-stats {
-      font-size: 0.82rem;
-      color: #6b7280;
-    }
+    .style-card:hover { border-color: #7a1a1a; background: #fdf5f5; }
+    .style-card.selected { border-color: #7a1a1a; background: #fdf5f5; }
+    .style-card .style-name { font-weight: 600; font-size: 0.88rem; color: #374151; }
+    .style-card .style-desc { font-size: 0.78rem; color: #9ca3af; margin-top: 2px; }
 
+    /* ── Screen 2: Review Testimony ──────────────────────────────────────── */
+    .review-top {
+      display: flex;
+      gap: 20px;
+      align-items: flex-start;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    .chart-wrap {
+      flex: 0 0 200px;
+    }
+    .chart-stats {
+      font-size: 0.78rem;
+      color: #6b7280;
+      margin-top: 8px;
+      line-height: 1.7;
+    }
+    .review-summary { flex: 1; min-width: 220px; }
+
+    /* Search + filter bar */
+    .filter-bar {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+    .filter-bar input[type="text"] {
+      margin-bottom: 0;
+      flex: 1;
+      min-width: 160px;
+      padding: 8px 12px;
+      font-size: 0.86rem;
+    }
+    .filter-btn {
+      padding: 7px 14px;
+      border-radius: 6px;
+      border: 1px solid #e5e7eb;
+      background: #fff;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: #6b7280;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.12s, color 0.12s, border-color 0.12s;
+    }
+    .filter-btn:hover { border-color: #7a1a1a; color: #7a1a1a; }
+    .filter-btn.active { background: #7a1a1a; color: #fff; border-color: #7a1a1a; }
+    .filter-count { font-size: 0.78rem; color: #9ca3af; }
+
+    /* Testimony table */
     .testimony-table-wrap {
       border: 1px solid #e5e7eb;
-      border-radius: 8px;
+      border-radius: 9px;
       overflow: hidden;
-      margin-bottom: 20px;
-      max-height: 420px;
+      margin-bottom: 18px;
+      max-height: 400px;
       overflow-y: auto;
     }
     .testimony-table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 0.84rem;
+      font-size: 0.83rem;
     }
     .testimony-table thead th {
       background: #5a0000;
       color: #fff;
-      padding: 9px 12px;
+      padding: 9px 11px;
       text-align: left;
       font-weight: 600;
-      font-size: 0.8rem;
+      font-size: 0.78rem;
       position: sticky;
       top: 0;
       z-index: 1;
@@ -162,14 +370,15 @@
     .testimony-table tbody tr { border-bottom: 1px solid #f3f4f6; }
     .testimony-table tbody tr:last-child { border-bottom: none; }
     .testimony-table tbody tr:hover { background: #fdf5f5; }
-    .testimony-table td { padding: 8px 12px; vertical-align: top; color: #374151; }
-    .testimony-table td:first-child { font-weight: 500; color: #1a1a2e; white-space: nowrap; }
+    .testimony-table td { padding: 8px 11px; vertical-align: top; color: #374151; }
+    .testimony-table td:first-child { color: #9ca3af; font-size: 0.76rem; white-space: nowrap; }
 
+    /* Badges */
     .badge {
       display: inline-block;
       padding: 2px 8px;
       border-radius: 4px;
-      font-size: 0.75rem;
+      font-size: 0.74rem;
       font-weight: 600;
     }
     .badge-fav  { background: #dcfce7; color: #166534; }
@@ -179,626 +388,1713 @@
     .badge-oral { background: #fef3c7; color: #92400e; }
     .badge-pdf  { background: #f0fdf4; color: #166534; }
 
-    /* ── Video card ─────────────────────────────────────────────────── */
+    /* Video card */
     .video-card {
       background: #f9fafb;
       border: 1px solid #e5e7eb;
       border-radius: 8px;
-      padding: 14px;
-      margin-bottom: 18px;
+      padding: 13px;
+      margin-bottom: 16px;
       display: flex;
       align-items: flex-start;
       gap: 12px;
     }
     .video-card .icon {
-      width: 36px; height: 36px;
+      width: 34px; height: 34px;
       background: #7a1a1a;
       border-radius: 6px;
       display: flex; align-items: center; justify-content: center;
       flex-shrink: 0;
     }
-    .video-card .icon svg { fill: #fff; width: 18px; height: 18px; }
-    .video-card .label { font-size: 0.8rem; color: #6b7280; margin-bottom: 3px; }
-    .video-card a { color: #7a1a1a; font-size: 0.88rem; font-weight: 500; text-decoration: none; word-break: break-all; }
+    .video-card .icon svg { fill: #fff; width: 16px; height: 16px; }
+    .video-card .label { font-size: 0.78rem; color: #6b7280; margin-bottom: 3px; }
+    .video-card a { color: #7a1a1a; font-size: 0.85rem; font-weight: 500; text-decoration: none; word-break: break-all; }
     .video-card a:hover { text-decoration: underline; }
 
-    /* ── Memo output ─────────────────────────────────────────────────── */
-    .memo-output {
-      background: #fafafa;
-      border: 1px solid #e5e7eb;
-      border-radius: 8px;
-      padding: 24px;
-      white-space: pre-wrap;
-      font-size: 0.88rem;
-      line-height: 1.75;
-      max-height: 620px;
-      overflow-y: auto;
-    }
-
-    /* ── Progress/loading ────────────────────────────────────────────── */
+    /* ── Loading screen ───────────────────────────────────────────────────── */
     .spinner {
       display: inline-block;
-      width: 18px; height: 18px;
+      width: 17px; height: 17px;
       border: 2px solid #d1d5db;
       border-top-color: #7a1a1a;
       border-radius: 50%;
-      animation: spin 0.8s linear infinite;
+      animation: spin 0.7s linear infinite;
       vertical-align: middle;
-      margin-right: 8px;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    .progress-steps { list-style: none; margin: 18px 0; }
+    .progress-steps { list-style: none; margin: 16px 0; }
     .progress-steps li {
       padding: 9px 0;
-      font-size: 0.9rem;
+      font-size: 0.88rem;
       display: flex;
       align-items: center;
       gap: 10px;
       border-bottom: 1px solid #f3f4f6;
       color: #6b7280;
     }
+    .progress-steps li:last-child { border-bottom: none; }
     .progress-steps li.active { color: #5a0000; font-weight: 500; }
-    .progress-steps li.done   { color: #1a6b3a; }
+    .progress-steps li.done   { color: #166534; }
     .progress-steps li .icon  { width: 20px; text-align: center; }
 
-    .actions-row { display: flex; gap: 12px; margin-top: 20px; flex-wrap: wrap; }
-    hr { border: none; border-top: 1px solid #e5e7eb; margin: 22px 0; }
-    .hidden { display: none !important; }
-    .row { display: flex; gap: 16px; flex-wrap: wrap; }
-    .row .field { flex: 1; min-width: 140px; }
+    /* ── Screen 3: Memo ───────────────────────────────────────────────────── */
+    .memo-output {
+      background: #fafafa;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 22px;
+      white-space: pre-wrap;
+      font-size: 0.87rem;
+      line-height: 1.78;
+      max-height: 600px;
+      overflow-y: auto;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+    }
+
+    .drive-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.84rem;
+      color: #166534;
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: 7px;
+      padding: 9px 14px;
+      margin-top: 14px;
+    }
+    .drive-status a { color: #166534; font-weight: 600; }
+
+    /* ── History screen ───────────────────────────────────────────────────── */
+    .history-toolbar {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    .history-toolbar input[type="text"] {
+      margin-bottom: 0;
+      flex: 1;
+      min-width: 200px;
+      padding: 9px 13px;
+      font-size: 0.88rem;
+    }
+
+    .history-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .history-card {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 11px;
+      padding: 18px;
+      transition: box-shadow 0.15s;
+    }
+    .history-card:hover { box-shadow: 0 2px 12px rgba(122,26,26,0.1); }
+    .history-card-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+    .history-bill {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #5a0000;
+    }
+    .history-session {
+      font-size: 0.76rem;
+      color: #9ca3af;
+      margin-top: 2px;
+    }
+    .history-style {
+      font-size: 0.72rem;
+      background: #fdf5f5;
+      color: #7a1a1a;
+      border-radius: 4px;
+      padding: 2px 7px;
+      font-weight: 600;
+    }
+    .history-meta {
+      font-size: 0.78rem;
+      color: #9ca3af;
+      margin-bottom: 8px;
+    }
+    .history-preview {
+      font-size: 0.8rem;
+      color: #6b7280;
+      line-height: 1.5;
+      margin-bottom: 12px;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .history-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .compare-check {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.82rem;
+      color: #6b7280;
+      cursor: pointer;
+      margin-left: auto;
+    }
+    .compare-check input { cursor: pointer; accent-color: #7a1a1a; }
+    .drive-link {
+      font-size: 0.8rem;
+      color: #166534;
+      text-decoration: none;
+    }
+    .drive-link:hover { text-decoration: underline; }
+
+    .compare-bar {
+      background: #fff8f0;
+      border: 1px solid #fcd9a0;
+      border-radius: 10px;
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .compare-bar-text { font-size: 0.86rem; color: #7a3a00; flex: 1; }
+    .compare-pill {
+      background: #7a1a1a;
+      color: #fff;
+      border-radius: 20px;
+      padding: 2px 11px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .compare-pill button {
+      border: none; background: none; color: rgba(255,255,255,0.7);
+      cursor: pointer; font-size: 1rem; line-height: 1; padding: 0;
+    }
+    .compare-pill button:hover { color: #fff; }
+
+    /* ── Compare screen ───────────────────────────────────────────────────── */
+    .compare-output {
+      background: #fafafa;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 22px;
+      white-space: pre-wrap;
+      font-size: 0.87rem;
+      line-height: 1.78;
+      max-height: 600px;
+      overflow-y: auto;
+    }
+
+    /* ── Utilities ────────────────────────────────────────────────────────── */
+    .actions-row { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
+    hr { border: none; border-top: 1px solid #e5e7eb; margin: 20px 0; }
+    .hidden  { display: none !important; }
+    .row     { display: flex; gap: 14px; flex-wrap: wrap; }
+    .row .field { flex: 1; min-width: 130px; }
+    .section-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #9ca3af;
+      margin-bottom: 10px;
+    }
+    .divider-text {
+      text-align: center;
+      color: #9ca3af;
+      font-size: 0.8rem;
+      margin: 14px 0;
+      position: relative;
+    }
+    .divider-text::before, .divider-text::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      width: calc(50% - 30px);
+      height: 1px;
+      background: #e5e7eb;
+    }
+    .divider-text::before { left: 0; }
+    .divider-text::after  { right: 0; }
   </style>
 </head>
 <body>
 
+<!-- ══════════════════ HEADER ════════════════════════════════════════════ -->
 <header>
-  <h1>Senate Floor Legislative Analysis Tool</h1>
-  <span>Maryland General Assembly · Senate Staff · Internal Use Only</span>
+  <div>
+    <h1>Senate Legislative Analysis Tool</h1>
+    <span>Maryland General Assembly · Senate Staff · Internal Use Only</span>
+  </div>
+  <div id="server-badge" style="font-size:0.75rem;opacity:0.75;"></div>
 </header>
+
+<!-- ══════════════════ TOP NAVIGATION ════════════════════════════════════ -->
+<div class="top-nav">
+  <div class="top-nav-inner">
+    <button class="nav-tab active" id="navbtn-analysis" onclick="setNavMode('analysis')">
+      🔍 New Analysis
+    </button>
+    <button class="nav-tab" id="navbtn-history" onclick="setNavMode('history')">
+      📋 Bill History
+    </button>
+    <button class="nav-tab" id="navbtn-compare" onclick="setNavMode('compare')">
+      ⚖️ Compare Bills
+    </button>
+  </div>
+</div>
 
 <div class="container">
 
-  <div class="steps">
-    <div class="step-tab active" id="tab-1"><span class="num">1</span>Find Bill</div>
-    <div class="step-tab" id="tab-2"><span class="num">2</span>Review Testimony</div>
-    <div class="step-tab" id="tab-3"><span class="num">3</span>View Memo</div>
-  </div>
+  <!-- ════════════════ ANALYSIS MODE ══════════════════════════════════════ -->
+  <div id="mode-analysis">
 
-  <!-- ══════════════════════════════════════════════════════════════════════
-       SCREEN 1 — Find Bill
-  ══════════════════════════════════════════════════════════════════════ -->
-  <div id="screen-1" class="card">
-    <h2>Find a Bill</h2>
-    <p class="sub">
-      Enter the bill number exactly as it appears in the Floor System (e.g. HB1532 or SB0100).
-      The tool will log into the Floor System, navigate to Committee Testimony, and automatically
-      download all written testimony PDFs.
-    </p>
+    <!-- Step tabs -->
+    <div class="steps" id="step-tabs">
+      <div class="step-tab active" id="tab-1"><span class="num">1</span>Find Bill</div>
+      <div class="step-tab"        id="tab-2"><span class="num">2</span>Review Testimony</div>
+      <div class="step-tab"        id="tab-3"><span class="num">3</span>View Memo</div>
+    </div>
 
-    <div id="server-status" class="alert alert-info hidden"></div>
+    <!-- ── SCREEN 1: Find Bill ─────────────────────────────────────────── -->
+    <div id="screen-1" class="card">
+      <h2>Find a Bill</h2>
+      <p class="sub">
+        Auto-download testimony from the MGA website, or upload PDFs you already have.
+        Both paths produce the same memo.
+      </p>
 
-    <!-- Bill number + session row -->
-    <div class="row">
-      <div class="field">
-        <label for="bill-number-input">
-          Bill Number
-          <span class="hint">e.g. HB1532 · SB0100</span>
-        </label>
+      <div id="screen1-server-error" class="alert alert-error hidden"></div>
+
+      <!-- Input mode toggle -->
+      <div class="mode-toggle">
+        <button class="mode-btn active" id="modbtn-auto"   onclick="setInputMode('auto')">
+          🔍 Auto-Download
+        </button>
+        <button class="mode-btn"        id="modbtn-upload" onclick="setInputMode('upload')">
+          📁 Upload Files
+        </button>
+      </div>
+
+      <!-- ─── AUTO-DOWNLOAD panel ─────────────────────────────────────── -->
+      <div id="panel-auto">
+        <div class="row">
+          <div class="field">
+            <label for="bill-number-input">
+              Bill Number <span class="hint">e.g. HB1532 · SB0100</span>
+            </label>
+            <input
+              type="text"
+              id="bill-number-input"
+              placeholder="hb1532"
+              autocomplete="off"
+              oninput="updatePreview()"
+              style="text-transform:lowercase;"
+            />
+          </div>
+          <div class="field" style="flex:0 0 200px;">
+            <label for="session-select">Legislative Session</label>
+            <select id="session-select" onchange="updatePreview()">
+              <option value="2026RS" selected>2026 Regular Session</option>
+              <option value="2025RS">2025 Regular Session</option>
+              <option value="2024RS">2024 Regular Session</option>
+              <option value="2023RS">2023 Regular Session</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="bill-preview" id="bill-preview">
+          <strong>Searching for:</strong>
+          <span id="bill-preview-text"></span>
+          &nbsp;—&nbsp;
+          <span id="bill-preview-url" style="font-size:0.79rem;opacity:0.7;"></span>
+        </div>
+      </div>
+
+      <!-- ─── UPLOAD panel ───────────────────────────────────────────── -->
+      <div id="panel-upload" class="hidden">
+        <div class="row">
+          <div class="field">
+            <label for="upload-bill-id">
+              Bill Number <span class="hint">optional — used for file naming</span>
+            </label>
+            <input
+              type="text"
+              id="upload-bill-id"
+              placeholder="HB1532"
+              autocomplete="off"
+              style="text-transform:uppercase;"
+            />
+          </div>
+          <div class="field" style="flex:0 0 200px;">
+            <label for="upload-session-select">Legislative Session</label>
+            <select id="upload-session-select">
+              <option value="2026RS" selected>2026 Regular Session</option>
+              <option value="2025RS">2025 Regular Session</option>
+              <option value="2024RS">2024 Regular Session</option>
+              <option value="2023RS">2023 Regular Session</option>
+            </select>
+          </div>
+        </div>
+
+        <div
+          id="drop-zone"
+          class="drop-zone"
+          onclick="document.getElementById('file-input').click()"
+        >
+          <div class="dz-icon">📄</div>
+          <div class="dz-text">Drag &amp; drop testimony PDFs here</div>
+          <div class="dz-hint">or click to browse · Multiple files OK</div>
+          <input type="file" id="file-input" multiple accept=".pdf" style="display:none;" />
+        </div>
+
+        <p class="upload-hint" id="upload-position-hint" style="display:none;">
+          ℹ️ Set the position for each file — this determines how the donut chart and filters work.
+        </p>
+        <div id="file-list" class="file-list"></div>
+      </div>
+
+      <!-- ─── Shared optional fields ──────────────────────────────────── -->
+      <hr style="margin: 6px 0 18px;" />
+
+      <p class="section-label">Memo Style</p>
+      <div class="style-grid" id="style-grid">
+        <div class="style-card selected" data-style="full_analysis"     onclick="selectStyle(this)">
+          <div class="style-name">📋 Full Analysis</div>
+          <div class="style-desc">All 6 sections · positions, amendments, themes, recommendations</div>
+        </div>
+        <div class="style-card" data-style="quick_summary"     onclick="selectStyle(this)">
+          <div class="style-name">⚡ Quick Summary</div>
+          <div class="style-desc">Executive brief · overall picture + 5 key voices + watch points</div>
+        </div>
+        <div class="style-card" data-style="amendments_focus"  onclick="selectStyle(this)">
+          <div class="style-name">✏️ Amendments Focus</div>
+          <div class="style-desc">Deep-dive on every amendment request · common ground vs. contested</div>
+        </div>
+        <div class="style-card" data-style="opposition_report" onclick="selectStyle(this)">
+          <div class="style-name">🔴 Opposition Report</div>
+          <div class="style-desc">Who opposes and exactly why · strongest arguments · possible concessions</div>
+        </div>
+      </div>
+
+      <label for="video-url-input">
+        MGA Hearing Video URL <span class="hint">(optional)</span>
+      </label>
+      <input
+        type="text"
+        id="video-url-input"
+        placeholder="https://mgaleg.maryland.gov/mgawebsite/Committees/Media/..."
+        autocomplete="off"
+      />
+
+      <label for="transcript-input">
+        Paste Hearing Transcript <span class="hint">(optional)</span>
+      </label>
+      <textarea
+        id="transcript-input"
+        placeholder="Paste the hearing transcript here, or leave blank to generate the memo from written testimony only…"
+      ></textarea>
+
+      <div id="screen1-error" class="alert alert-error hidden"></div>
+
+      <!-- Buttons — swapped by input mode -->
+      <div id="btn-auto-row">
+        <button class="btn btn-primary" id="btn-find-bill" onclick="findBill()">
+          Download Committee Testimony
+        </button>
+      </div>
+      <div id="btn-upload-row" class="hidden">
+        <button class="btn btn-primary" id="btn-upload" onclick="uploadDocuments()">
+          Upload &amp; Review
+        </button>
+      </div>
+    </div><!-- /screen-1 -->
+
+    <!-- ── SCREEN 2: Review Testimony ─────────────────────────────────── -->
+    <div id="screen-2" class="card hidden">
+      <h2>Review Testimony</h2>
+      <p class="sub" id="screen2-sub">Review the testimony below, then generate your memo.</p>
+
+      <div id="scrape-summary"></div>
+
+      <!-- Fallback upload zone: shown when auto-download found 0 testimony PDFs -->
+      <div id="fallback-upload-banner" class="hidden"></div>
+
+      <!-- Chart + stats row -->
+      <div id="review-top-row" class="review-top hidden">
+        <div class="chart-wrap">
+          <canvas id="positionChart" width="200" height="200"></canvas>
+          <div class="chart-stats" id="chart-stats"></div>
+        </div>
+        <div class="review-summary" id="review-summary-text"></div>
+      </div>
+
+      <!-- Search + filter bar -->
+      <div id="filter-bar-wrap" class="hidden">
+        <div class="filter-bar">
+          <input
+            type="text"
+            id="testimony-search"
+            placeholder="Search name or organization…"
+            oninput="filterTable()"
+          />
+          <button class="filter-btn active" data-pos="all" onclick="setFilter(this)">All</button>
+          <button class="filter-btn" data-pos="FAV" onclick="setFilter(this)">In Favor</button>
+          <button class="filter-btn" data-pos="FWA" onclick="setFilter(this)">Favor w/Amend</button>
+          <button class="filter-btn" data-pos="UNF" onclick="setFilter(this)">Opposed</button>
+          <button class="filter-btn" data-pos="IMR" onclick="setFilter(this)">Info</button>
+          <span class="filter-count" id="filter-count"></span>
+        </div>
+      </div>
+
+      <!-- Testimony table -->
+      <div id="testimony-section" class="hidden">
+        <div class="testimony-table-wrap">
+          <table class="testimony-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Name</th>
+                <th>Organization</th>
+                <th>Position</th>
+                <th>Document</th>
+              </tr>
+            </thead>
+            <tbody id="testimony-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Video link -->
+      <div id="video-display" class="hidden"></div>
+
+      <!-- Scraper errors -->
+      <div id="scraper-errors" class="alert alert-warning hidden"></div>
+
+      <hr />
+      <div id="screen2-error" class="alert alert-error hidden"></div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <button class="btn btn-secondary" onclick="goBack()">← Back</button>
+        <button class="btn btn-primary" id="btn-generate" onclick="generateMemo()">
+          Generate Memo
+        </button>
+      </div>
+    </div><!-- /screen-2 -->
+
+    <!-- ── LOADING SCREEN ──────────────────────────────────────────────── -->
+    <div id="screen-loading" class="card hidden">
+      <h2 style="display:flex;align-items:center;gap:12px;">
+        <span class="spinner"></span> Generating your memo…
+      </h2>
+      <p class="sub">
+        Reading all testimony documents and writing a structured brief.
+        This takes 30–90 seconds.
+      </p>
+      <ul class="progress-steps">
+        <li class="done" id="prog-scrape">
+          <span class="icon">✓</span> Testimony collected
+        </li>
+        <li class="active" id="prog-memo">
+          <span class="icon">📝</span> Generating memo with AI
+        </li>
+        <li id="prog-drive" style="color:#9ca3af;">
+          <span class="icon">📁</span> Uploading to Google Drive
+        </li>
+      </ul>
+      <p style="font-size:0.78rem;color:#9ca3af;margin-top:12px;">
+        Do not close this tab — the memo will appear automatically.
+      </p>
+    </div>
+
+    <!-- ── SCREEN 3: View Memo ─────────────────────────────────────────── -->
+    <div id="screen-3" class="card hidden">
+      <h2>Legislative Analysis Memo</h2>
+      <p class="sub" id="memo-metadata"></p>
+
+      <div id="memo-errors" class="alert alert-warning hidden"></div>
+
+      <div class="memo-output" id="memo-text"></div>
+
+      <div id="drive-banner" class="drive-status hidden">
+        📁 Saved to Google Drive —
+        <a id="drive-link" href="#" target="_blank" rel="noopener">Open in Drive</a>
+      </div>
+
+      <div class="actions-row">
+        <button class="btn btn-primary"   onclick="downloadTxt()">⬇ Download .txt</button>
+        <button class="btn btn-secondary" id="btn-docx" onclick="downloadDocx()">⬇ Download .docx</button>
+        <button class="btn btn-outline"   id="btn-copy" onclick="copyMemo()">📋 Copy</button>
+        <button class="btn btn-secondary" onclick="startOver()">Analyze Another Bill</button>
+      </div>
+    </div>
+
+  </div><!-- /mode-analysis -->
+
+  <!-- ════════════════ HISTORY MODE ════════════════════════════════════════ -->
+  <div id="mode-history" class="hidden">
+    <div class="card">
+      <h2>Bill History</h2>
+      <p class="sub">All previously generated memos. Click any bill to re-view its memo.</p>
+
+      <div class="history-toolbar">
         <input
           type="text"
-          id="bill-number-input"
-          placeholder="hb1532"
-          autocomplete="off"
-          oninput="updatePreview()"
-          style="text-transform:lowercase;"
+          id="history-search"
+          placeholder="Search by bill number, session, or style…"
+          oninput="filterHistory()"
         />
+        <button class="btn btn-secondary btn-sm" onclick="loadHistory()">↻ Refresh</button>
       </div>
-      <div class="field" style="flex:0 0 200px;">
-        <label for="session-select">Legislative Session</label>
-        <select id="session-select" onchange="updatePreview()">
-          <option value="2026RS" selected>2026 Regular Session</option>
-          <option value="2025RS">2025 Regular Session</option>
-          <option value="2024RS">2024 Regular Session</option>
-          <option value="2023RS">2023 Regular Session</option>
-        </select>
+
+      <!-- Compare bar (shown when ≥1 bills checked) -->
+      <div id="compare-bar" class="compare-bar hidden" style="margin-bottom:20px;">
+        <div class="compare-bar-text">
+          <strong>Compare selected:</strong>
+          <span id="compare-pills"></span>
+        </div>
+        <button
+          class="btn btn-primary btn-sm"
+          id="btn-go-compare"
+          onclick="goToCompare()"
+          disabled
+        >
+          Compare Bills
+        </button>
       </div>
-    </div>
 
-    <!-- Live preview -->
-    <div class="bill-preview" id="bill-preview">
-      <strong>Searching for:</strong>
-      <span id="bill-preview-text"></span>
-      &nbsp;&mdash;&nbsp;
-      <span id="bill-preview-url" style="font-size:0.8rem;opacity:0.7;"></span>
-    </div>
-
-    <!-- Video URL (optional) -->
-    <label for="video-url-input">
-      MGA Hearing Video URL
-      <span class="hint">(optional)</span>
-    </label>
-    <input
-      type="text"
-      id="video-url-input"
-      placeholder="https://mgaleg.maryland.gov/mgawebsite/Committees/Media/false?..."
-      autocomplete="off"
-    />
-    <p style="font-size:0.8rem;color:#9ca3af;margin-top:-14px;margin-bottom:20px;">
-      Paste the Committee Media page URL. You can optionally paste a transcript below after watching.
-    </p>
-
-    <!-- Optional manual transcript paste -->
-    <label for="transcript-input">
-      Paste Hearing Transcript
-      <span class="hint">(optional —  copy from the video captions or type key points)</span>
-    </label>
-    <textarea
-      id="transcript-input"
-      placeholder=Paste the hearing transcript here, or leave blank to generate the memo from written testimony only..."
-    ></textarea>
-
-    <div id="screen1-error" class="alert alert-error hidden"></div>
-
-    <button class="btn btn-primary" id="btn-find-bill" onclick="findBill()">
-      Download Committee Testimony
-    </button>
-  </div>
-
-  <!-- ══════════════════════════════════════════════════════════════════════
-       SCREEN 2 — Review Testimony
-  ══════════════════════════════════════════════════════════════════════ -->
-  <div id="screen-2" class="card hidden">
-    <h2>Review Testimony</h2>
-    <p class="sub">
-      All written testimony has been downloaded. Review the list below, then click Generate Memo.
-    </p>
-
-    <!-- Summary alert -->
-    <div id="scrape-summary"></div>
-
-    <!-- Testimony table -->
-    <div id="testimony-section" class="hidden">
-      <div class="testimony-header">
-        <h3>Committee Testimony</h3>
-        <span class="testimony-stats" id="testimony-stats"></span>
+      <div id="history-grid" class="history-grid">
+        <p style="color:#9ca3af;text-align:center;padding:40px;grid-column:1/-1;">Loading…</p>
       </div>
-      <div class="testimony-table-wrap">
-        <table class="testimony-table">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Name</th>
-              <th>Organization</th>
-              <th>Position</th>
-              <th>Document</th>
-            </tr>
-          </thead>
-          <tbody id="testimony-tbody"></tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- Video link -->
-    <div id="video-display" class="hidden"></div>
-
-    <!-- Errors from scraper -->
-    <div id="scraper-errors" class="alert alert-warning hidden"></div>
-
-    <hr />
-    <div id="screen2-error" class="alert alert-error hidden"></div>
-    <div style="display:flex; gap:12px; flex-wrap:wrap;">
-      <button class="btn btn-secondary" onclick="goBack()">← Back</button>
-      <button class="btn btn-primary" id="btn-generate" onclick="generateMemo()">
-        Generate Memo
-      </button>
     </div>
   </div>
 
-  <!-- ══════════════════════════════════════════════════════════════════════
-       LOADING SCREEN
-  ══════════════════════════════════════════════════════════════════════ -->
-  <div id="screen-loading" class="card hidden">
-    <h2><span class="spinner"></span> Generating your memo…</h2>
-    <p class="sub">Analysing all testimony documents and generating a structured briefing. This takes 30–90 seconds.</p>
-    <ul class="progress-steps">
-      <li class="done" id="prog-scrape">
-        <span class="icon">&#10003;</span> Testimony downloaded from Floor System
-      </li>
-      <li class="active" id="prog-memo">
-        <span class="icon">&#x1F4DD;</span> Generating memo with AI
-      </li>
-    </ul>
-    <p style="font-size:0.8rem;color:#9ca3af;margin-top:14px;">
-      Do not close this tab. The memo will appear automatically when ready.
-    </p>
-  </div>
+  <!-- ════════════════ COMPARE MODE ════════════════════════════════════════ -->
+  <div id="mode-compare" class="hidden">
+    <div class="card">
+      <h2>Compare Bills</h2>
+      <p class="sub">
+        Select two or more previously analysed bills from History, then generate a
+        side-by-side comparative analysis.
+      </p>
 
-  <!-- ══════════════════════════════════════════════════════════════════════
-       SCREEN 3 — View Memo
-  ══════════════════════════════════════════════════════════════════════ -->
-  <div id="screen-3" class="card hidden">
-    <h2>Legislative Analysis Memo</h2>
-    <p class="sub" id="memo-metadata"></p>
+      <div id="compare-selected-list" style="margin-bottom:18px;"></div>
 
-    <div id="memo-errors" class="alert alert-warning hidden"></div>
+      <div id="compare-empty" class="alert alert-info">
+        Go to <strong>Bill History</strong>, check the "Compare" box on two or more bills,
+        then return here.
+      </div>
 
-    <div class="memo-output" id="memo-text"></div>
+      <div id="compare-action-row" class="hidden">
+        <button class="btn btn-primary" id="btn-run-compare" onclick="runCompare()">
+          Generate Comparative Analysis
+        </button>
+      </div>
 
-    <div class="actions-row">
-      <button class="btn btn-primary"   onclick="downloadMemo()">Download as .txt</button>
-      <button class="btn btn-secondary" onclick="startOver()">Analyze Another Bill</button>
+      <div id="compare-loading" class="hidden" style="margin-top:18px;">
+        <span class="spinner"></span>
+        <span style="font-size:0.88rem;color:#6b7280;margin-left:10px;">
+          Analysing both bills…
+        </span>
+      </div>
+
+      <div id="compare-result-wrap" class="hidden" style="margin-top:20px;">
+        <p class="sub" id="compare-meta"></p>
+        <div class="compare-output" id="compare-result"></div>
+        <div class="actions-row">
+          <button class="btn btn-primary"   onclick="downloadComparison()">⬇ Download .txt</button>
+          <button class="btn btn-outline"   id="btn-copy-compare" onclick="copyComparison()">📋 Copy</button>
+        </div>
+      </div>
     </div>
   </div>
 
 </div><!-- /container -->
 
+<!-- ════════════════ JAVASCRIPT ═══════════════════════════════════════════ -->
 <script>
-  const API_BASE = "http://localhost:8000";
+const API_BASE = "http://localhost:8000";
 
-  // Central state — everything the app needs to remember between screens
-  let state = {
-    billNumber:        "",
-    session:           "2026RS",
-    videoUrl:          "",
-    transcript:        "",
-    pdfPaths:          [],
-    testimonyRecords:  [],   // rich metadata from scraper
-    documentsFound:    [],
-    memo:              "",
-    pipelineResult:    null,
-  };
+// ── Central state ─────────────────────────────────────────────────────────
+let state = {
+  // Input mode
+  inputMode:        "auto",     // "auto" | "upload"
+  memoStyle:        "full_analysis",
 
-  // ── Server connection check on page load ──────────────────────────────────
-  window.addEventListener("load", async () => {
-    const box = document.getElementById("server-status");
-    box.classList.remove("hidden");
-    box.textContent = "Checking server connection…";
-    try {
-      const res  = await fetch(`${API_BASE}/`, { signal: AbortSignal.timeout(5000) });
-      const data = await res.json();
-      box.className   = "alert alert-success";
-      box.textContent = `Connected to server. Plugins: ${data.plugins_available.join(", ")}`;
-      setTimeout(() => box.classList.add("hidden"), 4000);
-    } catch {
-      box.className  = "alert alert-error";
-      box.innerHTML  = `Cannot reach server at <strong>${API_BASE}</strong>.<br>
-        Run: <code>cd backend && uvicorn main:app --reload --port 8000</code>`;
-    }
+  // Auto-download
+  billNumber:       "",
+  session:          "2026RS",
+
+  // Shared optional
+  videoUrl:         "",
+  transcript:       "",
+
+  // After scrape/upload
+  pdfPaths:         [],
+  testimonyRecords: [],
+  documentsFound:   [],
+  source:           "scraper",  // "scraper" | "manual_upload"
+
+  // After memo generation
+  memo:             "",
+  pipelineResult:   null,
+
+  // History + compare
+  historyMemos:     [],
+  compareSelected:  [],         // bill_id strings
+  comparisonText:   "",
+};
+
+let navMode        = "analysis";  // "analysis" | "history" | "compare"
+let analysisScreen = 1;           // 1 | 2 | "loading" | 3
+let positionChart  = null;
+let uploadedFiles  = [];
+
+// ── Server connection check ───────────────────────────────────────────────
+window.addEventListener("load", async () => {
+  const badge = document.getElementById("server-badge");
+  try {
+    const res  = await fetch(`${API_BASE}/`, { signal: AbortSignal.timeout(5000) });
+    const data = await res.json();
+    badge.textContent = "● Connected";
+    badge.style.color = "#86efac";
+    setTimeout(() => badge.textContent = "", 4000);
+  } catch {
+    badge.textContent = "● Server offline";
+    badge.style.color = "#fca5a5";
+    showError("screen1-server-error",
+      `Cannot reach server at ${API_BASE}. Run: cd backend && uvicorn main:app --reload --port 8000`
+    );
+  }
+
+  setupDropZone();
+});
+
+// ── Navigation ────────────────────────────────────────────────────────────
+function setNavMode(mode) {
+  navMode = mode;
+  ["analysis", "history", "compare"].forEach(m => {
+    document.getElementById(`mode-${m}`).classList.toggle("hidden", m !== mode);
+    document.getElementById(`navbtn-${m}`).classList.toggle("active", m === mode);
   });
 
-  // ── Live bill preview ─────────────────────────────────────────────────────
-  function updatePreview() {
-    const raw     = document.getElementById("bill-number-input").value.trim().toLowerCase();
-    const session = document.getElementById("session-select").value;
-    const preview = document.getElementById("bill-preview");
-    const text    = document.getElementById("bill-preview-text");
-    const urlSpan = document.getElementById("bill-preview-url");
-
-    if (!raw) { preview.style.display = "none"; return; }
-
-    // Floor System URL pattern from screenshot
-    text.textContent    = `${raw} · ${session} · Floor System`;
-    urlSpan.textContent = `https://senatefloor/floor/Bills/Details/${raw}`;
-    preview.style.display = "block";
+  if (mode === "history") {
+    loadHistory();
+  } else if (mode === "compare") {
+    renderCompareScreen();
   }
+}
 
-  // ── Screen navigation ─────────────────────────────────────────────────────
-  function showScreen(n) {
-    ["screen-1", "screen-2", "screen-loading", "screen-3"].forEach(id =>
-      document.getElementById(id).classList.add("hidden")
-    );
-    document.getElementById(n === "loading" ? "screen-loading" : `screen-${n}`).classList.remove("hidden");
+// ── Analysis: screen routing ──────────────────────────────────────────────
+function showScreen(n) {
+  ["screen-1", "screen-2", "screen-loading", "screen-3"].forEach(id =>
+    document.getElementById(id).classList.add("hidden")
+  );
+  const screenId = n === "loading" ? "screen-loading" : `screen-${n}`;
+  document.getElementById(screenId).classList.remove("hidden");
 
-    [1, 2, 3].forEach(i => {
-      const tab    = document.getElementById(`tab-${i}`);
-      tab.className = "step-tab";
-      const active  = n === "loading" ? 2 : n;
-      if (i < active)      tab.classList.add("done");
-      else if (i === active) tab.classList.add("active");
+  const active = n === "loading" ? 2 : n;
+  [1, 2, 3].forEach(i => {
+    const tab = document.getElementById(`tab-${i}`);
+    tab.className = "step-tab";
+    if (i < active)       tab.classList.add("done");
+    else if (i === active) tab.classList.add("active");
+  });
+
+  analysisScreen = n;
+}
+
+function goBack() { showScreen(1); }
+
+function showError(id, msg) {
+  const el = document.getElementById(id);
+  el.innerHTML = msg;
+  el.classList.remove("hidden");
+}
+function hideError(id) { document.getElementById(id).classList.add("hidden"); }
+
+function escapeHtml(str) {
+  return String(str ?? "")
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+function formatDate(iso) {
+  if (!iso) return "";
+  try {
+    return new Date(iso).toLocaleDateString("en-US", { month:"short", day:"numeric", year:"numeric" });
+  } catch { return iso; }
+}
+
+// ── Input mode toggle ─────────────────────────────────────────────────────
+function setInputMode(mode) {
+  state.inputMode = mode;
+  document.getElementById("modbtn-auto").classList.toggle("active",   mode === "auto");
+  document.getElementById("modbtn-upload").classList.toggle("active", mode === "upload");
+  document.getElementById("panel-auto").classList.toggle("hidden",   mode !== "auto");
+  document.getElementById("panel-upload").classList.toggle("hidden",  mode !== "upload");
+  document.getElementById("btn-auto-row").classList.toggle("hidden",  mode !== "auto");
+  document.getElementById("btn-upload-row").classList.toggle("hidden", mode !== "upload");
+}
+
+// ── Memo style selector ───────────────────────────────────────────────────
+function selectStyle(card) {
+  document.querySelectorAll(".style-card").forEach(c => c.classList.remove("selected"));
+  card.classList.add("selected");
+  state.memoStyle = card.dataset.style;
+}
+
+// ── Bill preview (auto-download mode) ────────────────────────────────────
+function updatePreview() {
+  const raw     = document.getElementById("bill-number-input").value.trim().toLowerCase();
+  const session = document.getElementById("session-select").value;
+  const preview = document.getElementById("bill-preview");
+
+  if (!raw) { preview.style.display = "none"; return; }
+
+  document.getElementById("bill-preview-text").textContent = `${raw.toUpperCase()} · ${session}`;
+  document.getElementById("bill-preview-url").textContent  =
+    `https://mgaleg.maryland.gov/${session}/testimony/${raw}/`;
+  preview.style.display = "block";
+}
+
+// ── Drop zone setup ───────────────────────────────────────────────────────
+function setupDropZone() {
+  const zone  = document.getElementById("drop-zone");
+  const input = document.getElementById("file-input");
+
+  zone.addEventListener("dragover", e => {
+    e.preventDefault();
+    zone.classList.add("drag-over");
+  });
+  zone.addEventListener("dragleave", () => zone.classList.remove("drag-over"));
+  zone.addEventListener("drop", e => {
+    e.preventDefault();
+    zone.classList.remove("drag-over");
+    handleFiles(e.dataTransfer.files);
+  });
+  input.addEventListener("change", e => handleFiles(e.target.files));
+}
+
+function handleFiles(fileList) {
+  uploadedFiles = [...uploadedFiles, ...fileList];
+  renderFileList();
+}
+
+function renderFileList() {
+  const list    = document.getElementById("file-list");
+  const hint    = document.getElementById("upload-position-hint");
+  if (!uploadedFiles.length) {
+    list.innerHTML = "";
+    hint.style.display = "none";
+    return;
+  }
+  hint.style.display = "block";
+  list.innerHTML = uploadedFiles.map((f, i) => `
+    <div class="file-item">
+      <span>📄</span>
+      <span class="file-name" title="${escapeHtml(f.name)}">${escapeHtml(f.name)}</span>
+      <span class="file-size">${(f.size / 1024).toFixed(0)} KB</span>
+      <select class="file-position" id="pos-${i}" title="Set this testifier's position">
+        <option value="IMR">Informational</option>
+        <option value="FAV">In Favor</option>
+        <option value="FWA">Favor w/ Amendments</option>
+        <option value="UNF">Opposed</option>
+      </select>
+      <button class="file-remove" onclick="removeFile(${i})" title="Remove">×</button>
+    </div>
+  `).join("");
+}
+
+function removeFile(idx) {
+  uploadedFiles.splice(idx, 1);
+  renderFileList();
+}
+
+// ── Fallback upload (Screen 2, when auto-download returned 0 PDFs) ────────
+let fallbackFiles = [];
+
+function handleFallbackFiles(fileList) {
+  fallbackFiles = [...fallbackFiles, ...fileList];
+  renderFallbackList();
+}
+
+function renderFallbackList() {
+  const list    = document.getElementById("fallback-file-list");
+  const btn     = document.getElementById("btn-add-fallback");
+  if (!list) return;
+  if (!fallbackFiles.length) {
+    list.innerHTML = "";
+    if (btn) btn.style.display = "none";
+    return;
+  }
+  list.innerHTML = fallbackFiles.map((f, i) => `
+    <div class="file-item">
+      <span>📄</span>
+      <span class="file-name">${escapeHtml(f.name)}</span>
+      <span class="file-size">${(f.size / 1024).toFixed(0)} KB</span>
+      <select class="file-position" id="fpos-${i}">
+        <option value="IMR">Informational</option>
+        <option value="FAV">In Favor</option>
+        <option value="FWA">Favor w/ Amendments</option>
+        <option value="UNF">Opposed</option>
+      </select>
+    </div>`).join("");
+  if (btn) btn.style.display = "inline-flex";
+}
+
+async function addFallbackFiles() {
+  if (!fallbackFiles.length) return;
+  const btn = document.getElementById("btn-add-fallback");
+  btn.disabled  = true;
+  btn.textContent = "Uploading…";
+
+  const positions = fallbackFiles.map((_, i) => {
+    const sel = document.getElementById(`fpos-${i}`);
+    return sel ? sel.value : "IMR";
+  });
+
+  const formData = new FormData();
+  formData.append("bill_id",   state.billNumber || "UPLOAD");
+  formData.append("session",   state.session    || "2026RS");
+  formData.append("positions", JSON.stringify(positions));
+  fallbackFiles.forEach(f => formData.append("files", f));
+
+  try {
+    const res  = await fetch(`${API_BASE}/upload-testimony`, { method: "POST", body: formData });
+    const data = await res.json();
+
+    // Merge with existing state
+    state.pdfPaths         = [...state.pdfPaths, ...(data.downloaded_files   || [])];
+    state.testimonyRecords = [...state.testimonyRecords, ...(data.testimony_records || [])];
+    state.source           = "manual_upload";
+
+    fallbackFiles = [];
+
+    // Rebuild screen 2 with merged data
+    buildReviewScreen({
+      ...data,
+      downloaded_files:  state.pdfPaths,
+      testimony_records: state.testimonyRecords,
+      count:             state.pdfPaths.length,
+      total_testifiers:  state.testimonyRecords.length,
     });
+  } catch (err) {
+    alert("Upload failed: " + err.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = "Add to Session & Continue"; }
+  }
+}
+
+function getUploadPositions() {
+  // Collect position selected for each file in the current file list
+  return uploadedFiles.map((_, i) => {
+    const sel = document.getElementById(`pos-${i}`);
+    return sel ? sel.value : "IMR";
+  });
+}
+
+// ── SCREEN 1 → 2: Auto-download ──────────────────────────────────────────
+async function findBill() {
+  hideError("screen1-error");
+
+  const billNumber = document.getElementById("bill-number-input").value.trim().toUpperCase();
+  const session    = document.getElementById("session-select").value;
+  const videoUrl   = document.getElementById("video-url-input").value.trim();
+  const transcript = document.getElementById("transcript-input").value.trim();
+
+  if (!billNumber) {
+    showError("screen1-error", "Please enter a bill number (e.g. HB1532 or SB0100).");
+    return;
+  }
+  if (!/^[A-Z]{2}\d+$/.test(billNumber)) {
+    showError("screen1-error",
+      `"${billNumber}" doesn't look right. Use the format HB1532 or SB0100 — ` +
+      `two letters then digits.`
+    );
+    return;
   }
 
-  function goBack() { showScreen(1); }
+  state.billNumber  = billNumber;
+  state.session     = session;
+  state.videoUrl    = videoUrl;
+  state.transcript  = transcript;
+  state.source      = "scraper";
 
-  function showError(id, msg) {
-    const el = document.getElementById(id);
-    el.textContent = msg;
-    el.classList.remove("hidden");
-  }
-  function hideError(id) { document.getElementById(id).classList.add("hidden"); }
+  const btn = document.getElementById("btn-find-bill");
+  btn.disabled  = true;
+  btn.innerHTML = '<span class="spinner"></span> Downloading testimony…';
 
-  function startOver() {
-    state = {
-      billNumber: "", session: "2026RS", videoUrl: "", transcript: "",
-      pdfPaths: [], testimonyRecords: [], documentsFound: [], memo: "", pipelineResult: null,
-    };
-    document.getElementById("bill-number-input").value = "";
-    document.getElementById("video-url-input").value   = "";
-    document.getElementById("transcript-input").value  = "";
-    document.getElementById("bill-preview").style.display = "none";
-    hideError("screen1-error");
-    showScreen(1);
-  }
+  try {
+    const res = await fetch(`${API_BASE}/run/scraper`, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ inputs: { bill_id: billNumber, session } }),
+    });
 
-  function escapeHtml(str) {
-    return String(str)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;");
-  }
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || `Server error: ${res.status}`);
+    }
 
-  // ── SCREEN 1 → SCREEN 2: Download testimony ───────────────────────────────
-  async function findBill() {
-    hideError("screen1-error");
+    const data   = await res.json();
+    const result = data.result;
 
-    const billNumber = document.getElementById("bill-number-input").value.trim().toUpperCase();
-    const session    = document.getElementById("session-select").value;
-    const videoUrl   = document.getElementById("video-url-input").value.trim();
-    const transcript = document.getElementById("transcript-input").value.trim();
-
-    // Validate
-    if (!billNumber) {
-      showError("screen1-error", "Please enter a bill number (e.g. HB1532 or SB0100).");
+    if (result.error && (result.downloaded_files || []).length === 0) {
+      showError("screen1-error", `Error: ${result.error}`);
       return;
     }
-    if (!/^[A-Z]{2}\d+$/.test(billNumber)) {
-      showError("screen1-error",
-        `"${billNumber}" doesn't look right. Use the format the Floor System shows: ` +
-        `two letters then digits, like HB1532 or SB0100.`
-      );
-      return;
+
+    state.pdfPaths         = result.downloaded_files   || [];
+    state.testimonyRecords = result.testimony_records  || [];
+    state.documentsFound   = result.documents_found    || [];
+
+    buildReviewScreen(result);
+    showScreen(2);
+
+  } catch (err) {
+    showError("screen1-error",
+      err.message.includes("fetch") || err.message.includes("Failed")
+        ? "Could not reach the server. Is uvicorn running on port 8000?"
+        : `Error: ${err.message}`
+    );
+  } finally {
+    btn.disabled  = false;
+    btn.textContent = "Download Committee Testimony";
+  }
+}
+
+// ── SCREEN 1 → 2: Manual upload ──────────────────────────────────────────
+async function uploadDocuments() {
+  hideError("screen1-error");
+
+  if (!uploadedFiles.length) {
+    showError("screen1-error", "Please select at least one PDF file to upload.");
+    return;
+  }
+
+  const billId  = (document.getElementById("upload-bill-id").value.trim() || "UPLOAD").toUpperCase();
+  const session = document.getElementById("upload-session-select").value;
+  const videoUrl   = document.getElementById("video-url-input").value.trim();
+  const transcript = document.getElementById("transcript-input").value.trim();
+
+  state.billNumber  = billId;
+  state.session     = session;
+  state.videoUrl    = videoUrl;
+  state.transcript  = transcript;
+  state.source      = "manual_upload";
+
+  const btn = document.getElementById("btn-upload");
+  btn.disabled  = true;
+  btn.innerHTML = '<span class="spinner"></span> Uploading…';
+
+  try {
+    const positions = getUploadPositions();
+    const formData  = new FormData();
+    formData.append("bill_id",   billId);
+    formData.append("session",   session);
+    formData.append("positions", JSON.stringify(positions));
+    uploadedFiles.forEach(f => formData.append("files", f));
+
+    const res = await fetch(`${API_BASE}/upload-testimony`, {
+      method: "POST",
+      body:   formData,
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || `Server error: ${res.status}`);
     }
 
-    state.billNumber = billNumber;
-    state.session    = session;
-    state.videoUrl   = videoUrl;
-    state.transcript = transcript;
+    const data = await res.json();
+    state.pdfPaths         = data.downloaded_files   || [];
+    state.testimonyRecords = data.testimony_records  || [];
+    state.documentsFound   = [];
 
-    const btn = document.getElementById("btn-find-bill");
-    btn.disabled  = true;
-    btn.innerHTML = '<span class="spinner"></span> Logging in and downloading testimony…';
+    buildReviewScreen(data);
+    showScreen(2);
 
-    try {
-      const res = await fetch(`${API_BASE}/run/scraper`, {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          inputs: {
-            bill_id:  billNumber,
-            session:  session,
+  } catch (err) {
+    showError("screen1-error", `Upload error: ${err.message}`);
+  } finally {
+    btn.disabled  = false;
+    btn.textContent = "Upload & Review";
+  }
+}
+
+// ── Build Screen 2 ────────────────────────────────────────────────────────
+function buildReviewScreen(result) {
+  const billLabel = result.bill_id || state.billNumber;
+  const sourceTag = state.source === "manual_upload"
+    ? " (manually uploaded)" : " (downloaded from MGA)";
+
+  // Summary alert
+  const total    = result.total_testifiers ?? state.testimonyRecords.length;
+  const dlCount  = result.count || 0;
+  const errCount = (result.errors || []).length;
+  const summaryEl = document.getElementById("scrape-summary");
+
+  if (total === 0 && dlCount === 0) {
+    summaryEl.innerHTML = `
+      <div class="alert alert-warning">
+        No testimony found for <strong>${escapeHtml(billLabel)}</strong>${sourceTag}.
+        ${result.error ? `<br><em>${escapeHtml(result.error)}</em>` : ""}
+        The memo will be generated from transcript only (if provided).
+      </div>`;
+  } else {
+    summaryEl.innerHTML = `
+      <div class="alert alert-success">
+        Found <strong>${total} testifier(s)</strong> for ${escapeHtml(billLabel)}${sourceTag} —
+        <strong>${dlCount} PDF(s)</strong> ready.
+        ${errCount ? `<br><em style="color:#92400e;">${errCount} download warning(s).</em>` : ""}
+      </div>`;
+  }
+
+  // Scraper errors
+  const errEl = document.getElementById("scraper-errors");
+  if ((result.errors || []).length) {
+    errEl.innerHTML = `<strong>Download warnings:</strong> ${result.errors.join(" · ")}`;
+    errEl.classList.remove("hidden");
+  } else {
+    errEl.classList.add("hidden");
+  }
+
+  // ── Fallback upload banner: shown when auto-download got 0 testimony PDFs ──
+  const fallbackBanner = document.getElementById("fallback-upload-banner");
+  fallbackBanner.classList.add("hidden");
+  fallbackBanner.innerHTML = "";
+
+  if (state.source === "scraper" && result.count === 0) {
+    fallbackBanner.classList.remove("hidden");
+    fallbackBanner.innerHTML = `
+      <div class="fallback-banner">
+        <p>
+          <strong>No testimony PDFs were automatically downloaded.</strong>
+          ${result.requires_manual_upload
+            ? " The Floor System requires Senate network access, or no testimony has been filed yet."
+            : " You can upload them manually below to continue."
           }
-        }),
-      });
-
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.detail || `Server error: ${res.status}`);
-      }
-
-      const data   = await res.json();
-      const result = data.result;
-
-      // Hard error (login failed, not on MGA wifi, etc.)
-      if (result.error && result.count === 0 && (result.testimonyRecords || []).length === 0) {
-        showError("screen1-error", `Error: ${result.error}`);
-        return;
-      }
-
-      // Store state
-      state.pdfPaths         = result.downloaded_files   || [];
-      state.testimonyRecords = result.testimony_records  || [];
-      state.documentsFound   = result.documents_found    || [];
-
-      buildConfirmScreen(result);
-      showScreen(2);
-
-    } catch (err) {
-      showError("screen1-error",
-        err.message.includes("fetch") || err.message.includes("Failed")
-          ? "Could not reach the server. Is uvicorn running on port 8000? Are you on MGA network?"
-          : `Error: ${err.message}`
-      );
-    } finally {
-      btn.disabled  = false;
-      btn.textContent = "Download Committee Testimony";
-    }
+        </p>
+        <div
+          class="fallback-drop-zone"
+          id="fallback-drop-zone"
+          onclick="document.getElementById('fallback-file-input').click()"
+          ondragover="event.preventDefault(); this.style.background='#fde68a';"
+          ondragleave="this.style.background='';"
+          ondrop="event.preventDefault(); this.style.background=''; handleFallbackFiles(event.dataTransfer.files)"
+        >
+          📄 Drop testimony PDFs here or <strong>click to browse</strong>
+          <input type="file" id="fallback-file-input" multiple accept=".pdf"
+            style="display:none" onchange="handleFallbackFiles(this.files)" />
+        </div>
+        <div class="fallback-file-list" id="fallback-file-list"></div>
+        <button class="btn btn-secondary btn-sm" onclick="addFallbackFiles()" id="btn-add-fallback" style="display:none;">
+          Add to Session &amp; Continue
+        </button>
+      </div>`;
   }
 
-  // ── Build Screen 2 ────────────────────────────────────────────────────────
-  function buildConfirmScreen(result) {
-    const summaryEl = document.getElementById("scrape-summary");
-    const billLabel = `${result.bill_id || state.billNumber}`;
+  // Testimony table + chart
+  const records = state.testimonyRecords;
+  if (records.length > 0) {
+    document.getElementById("testimony-section").classList.remove("hidden");
+    document.getElementById("filter-bar-wrap").classList.remove("hidden");
+    document.getElementById("review-top-row").classList.remove("hidden");
 
-    // ── Summary alert ─────────────────────────────────────────────────────
-    const total    = result.total_testifiers || state.testimonyRecords.length;
-    const dlCount  = result.count || 0;
-    const errCount = (result.errors || []).length;
+    // Position counts
+    const counts = { FAV: 0, FWA: 0, UNF: 0, IMR: 0 };
+    records.forEach(r => { if (r.position in counts) counts[r.position]++; });
 
-    if (total === 0 && dlCount === 0) {
-      summaryEl.innerHTML = `
-        <div class="alert alert-warning">
-          No testimony found for <strong>${billLabel}</strong>.
-          ${result.error ? `<br><em>${result.error}</em>` : ""}
-          The memo will be generated from the transcript only (if provided).
-        </div>`;
-    } else {
-      summaryEl.innerHTML = `
-        <div class="alert alert-success">
-          Found <strong>${total} testifier(s)</strong> for ${billLabel} &mdash;
-          <strong>${dlCount} written testimony PDF(s)</strong> downloaded.
-          ${errCount ? `<br><em style="color:#92400e;">${errCount} download(s) had errors.</em>` : ""}
-        </div>`;
-    }
+    // Donut chart
+    renderDonutChart(counts);
+    document.getElementById("chart-stats").innerHTML =
+      `<span style="color:#16a34a;">●</span> ${counts.FAV} In Favor<br>` +
+      `<span style="color:#2563eb;">●</span> ${counts.FWA} Favor w/Amend<br>` +
+      `<span style="color:#dc2626;">●</span> ${counts.UNF} Opposed<br>` +
+      `<span style="color:#9ca3af;">●</span> ${counts.IMR} Informational`;
 
-    // ── Scraper errors ────────────────────────────────────────────────────
-    const errEl = document.getElementById("scraper-errors");
-    if ((result.errors || []).length) {
-      errEl.innerHTML = `<strong>Download warnings:</strong> ${result.errors.join(" · ")}`;
-      errEl.classList.remove("hidden");
-    } else {
-      errEl.classList.add("hidden");
-    }
+    // Summary text
+    const total  = records.length;
+    const forPct = total ? Math.round((counts.FAV + counts.FWA) / total * 100) : 0;
+    const oppPct = total ? Math.round(counts.UNF / total * 100) : 0;
+    document.getElementById("review-summary-text").innerHTML = `
+      <p style="font-size:0.88rem;color:#374151;line-height:1.65;">
+        <strong>${total}</strong> testifiers total.
+        <strong>${forPct}%</strong> support the bill (in full or with amendments).
+        <strong>${oppPct}%</strong> oppose.
+      </p>
+      <p style="font-size:0.82rem;color:#9ca3af;margin-top:8px;">
+        Use the search and filters below to explore the testimony list.
+      </p>`;
 
-    // ── Testimony table ───────────────────────────────────────────────────
-    const records = state.testimonyRecords;
-    if (records.length > 0) {
-      document.getElementById("testimony-section").classList.remove("hidden");
+    // Table rows — store position as data attribute for filtering
+    const tbody = document.getElementById("testimony-tbody");
+    tbody.innerHTML = records.map((r, i) => {
+      const posBadge = positionBadge(r.position);
+      const docBadge = r.pdf_filename
+        ? `<span class="badge badge-pdf">Written PDF</span>`
+        : `<span class="badge badge-oral">Oral only</span>`;
+      return `
+        <tr data-position="${escapeHtml(r.position || '')}">
+          <td>${i + 1}</td>
+          <td style="font-weight:500;">${escapeHtml(r.name || "")}</td>
+          <td style="color:#6b7280;">${escapeHtml(r.organization || "")}</td>
+          <td>${posBadge}</td>
+          <td>${docBadge}</td>
+        </tr>`;
+    }).join("");
 
-      // Position counts for stats line
-      const favCount = records.filter(r => r.position === "FAV").length;
-      const fwaCount = records.filter(r => r.position === "FWA").length;
-      const unfCount = records.filter(r => r.position === "UNF").length;
-      const imrCount = records.filter(r => r.position === "IMR").length;
+    // Reset filter bar
+    document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+    document.querySelector('.filter-btn[data-pos="all"]').classList.add("active");
+    document.getElementById("testimony-search").value = "";
+    document.getElementById("filter-count").textContent = "";
 
-      document.getElementById("testimony-stats").textContent =
-        `${favCount} Favor · ${fwaCount} Favor w/Amend · ${unfCount} Opposed · ${imrCount} Informational`;
-
-      const tbody = document.getElementById("testimony-tbody");
-      tbody.innerHTML = records.map((r, i) => {
-        const posBadge = positionBadge(r.position);
-        const docBadge = r.pdf_filename
-          ? `<span class="badge badge-pdf">Written PDF</span>`
-          : `<span class="badge badge-oral">Oral only</span>`;
-        return `
-          <tr>
-            <td style="color:#9ca3af;font-size:0.78rem;">${i + 1}</td>
-            <td>${escapeHtml(r.name || "")}</td>
-            <td style="color:#6b7280;">${escapeHtml(r.organization || "")}</td>
-            <td>${posBadge}</td>
-            <td>${docBadge}</td>
-          </tr>`;
-      }).join("");
-    } else {
-      document.getElementById("testimony-section").classList.add("hidden");
-    }
-
-    // ── Video link ────────────────────────────────────────────────────────
-    const videoDiv = document.getElementById("video-display");
-    if (state.videoUrl) {
-      videoDiv.classList.remove("hidden");
-      videoDiv.innerHTML = `
-        <div class="video-card">
-          <div class="icon">
-            <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-          </div>
-          <div>
-            <div class="label">Hearing video — opens in a new tab</div>
-            <a href="${escapeHtml(state.videoUrl)}" target="_blank" rel="noopener noreferrer">
-              ${escapeHtml(state.videoUrl)}
-            </a>
-            ${state.transcript
-              ? `<div style="margin-top:6px;font-size:0.8rem;color:#166534;">
-                   Transcript provided (${state.transcript.split(/\s+/).length.toLocaleString()} words) — included in memo.
-                 </div>`
-              : `<div style="margin-top:6px;font-size:0.8rem;color:#6b7280;">
-                   No transcript — memo will use written testimony only.
-                 </div>`}
-          </div>
-        </div>`;
-    } else {
-      videoDiv.classList.add("hidden");
-    }
+  } else {
+    document.getElementById("testimony-section").classList.add("hidden");
+    document.getElementById("filter-bar-wrap").classList.add("hidden");
+    document.getElementById("review-top-row").classList.add("hidden");
   }
 
-  function positionBadge(pos) {
-    const map = {
-      "FAV": ["badge-fav",  "In Favor"],
-      "FWA": ["badge-fwa",  "Favor w/Amend"],
-      "UNF": ["badge-unf",  "Opposed"],
-      "IMR": ["badge-imr",  "Informational"],
-    };
-    const [cls, label] = map[pos] || ["badge-imr", pos || "—"];
-    return `<span class="badge ${cls}">${label}</span>`;
+  // Video link
+  const videoDiv = document.getElementById("video-display");
+  if (state.videoUrl) {
+    videoDiv.classList.remove("hidden");
+    videoDiv.innerHTML = `
+      <div class="video-card">
+        <div class="icon">
+          <svg viewBox="0 0 24 24" style="fill:#fff;width:16px;height:16px;"><path d="M8 5v14l11-7z"/></svg>
+        </div>
+        <div>
+          <div class="label">Hearing video — opens in a new tab</div>
+          <a href="${escapeHtml(state.videoUrl)}" target="_blank" rel="noopener">
+            ${escapeHtml(state.videoUrl)}
+          </a>
+          ${state.transcript
+            ? `<div style="margin-top:5px;font-size:0.78rem;color:#166534;">
+                 Transcript provided (${state.transcript.split(/\s+/).length.toLocaleString()} words) — included in memo.
+               </div>`
+            : `<div style="margin-top:5px;font-size:0.78rem;color:#9ca3af;">
+                 No transcript — memo will use written testimony only.
+               </div>`}
+        </div>
+      </div>`;
+  } else {
+    videoDiv.classList.add("hidden");
+  }
+}
+
+// Donut chart
+function renderDonutChart(counts) {
+  const ctx = document.getElementById("positionChart").getContext("2d");
+  if (positionChart) positionChart.destroy();
+  positionChart = new Chart(ctx, {
+    type: "doughnut",
+    data: {
+      labels: ["In Favor", "Favor w/Amend", "Opposed", "Informational"],
+      datasets: [{
+        data: [counts.FAV, counts.FWA, counts.UNF, counts.IMR],
+        backgroundColor: ["#16a34a", "#2563eb", "#dc2626", "#9ca3af"],
+        borderWidth: 2,
+        borderColor: "#fff",
+      }],
+    },
+    options: {
+      cutout: "68%",
+      plugins: { legend: { display: false } },
+      animation: { duration: 400 },
+    },
+  });
+}
+
+function positionBadge(pos) {
+  const map = {
+    FAV: ["badge-fav", "In Favor"],
+    FWA: ["badge-fwa", "Favor w/Amend"],
+    UNF: ["badge-unf", "Opposed"],
+    IMR: ["badge-imr", "Informational"],
+  };
+  const [cls, label] = map[pos] || ["badge-imr", pos || "—"];
+  return `<span class="badge ${cls}">${label}</span>`;
+}
+
+// Search + filter
+function filterTable() {
+  const query  = document.getElementById("testimony-search").value.toLowerCase();
+  const active = document.querySelector(".filter-btn.active")?.dataset.pos || "all";
+  const rows   = document.querySelectorAll("#testimony-tbody tr");
+  let visible  = 0;
+
+  rows.forEach(row => {
+    const name = row.cells[1]?.textContent.toLowerCase() || "";
+    const org  = row.cells[2]?.textContent.toLowerCase() || "";
+    const pos  = row.dataset.position || "";
+
+    const matchQ = !query || name.includes(query) || org.includes(query);
+    const matchF = active === "all" || pos === active;
+    const show   = matchQ && matchF;
+
+    row.style.display = show ? "" : "none";
+    if (show) visible++;
+  });
+
+  const total = rows.length;
+  document.getElementById("filter-count").textContent =
+    visible < total ? `Showing ${visible} of ${total}` : "";
+}
+
+function setFilter(btn) {
+  document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+  filterTable();
+}
+
+// ── SCREEN 2 → LOADING → 3: Generate memo ────────────────────────────────
+async function generateMemo() {
+  hideError("screen2-error");
+
+  if (!state.pdfPaths.length && !state.testimonyRecords.length && !state.transcript) {
+    showError("screen2-error",
+      "No testimony documents, testifier data, or transcript available. " +
+      "Please go back and check the bill number or paste a transcript."
+    );
+    return;
   }
 
-  // ── SCREEN 2 → SCREEN 3: Generate memo ───────────────────────────────────
-  async function generateMemo() {
-    hideError("screen2-error");
+  showScreen("loading");
+  document.getElementById("prog-drive").style.color = "#9ca3af";
 
-    if (state.pdfPaths.length === 0 && state.testimonyRecords.length === 0 && !state.transcript) {
-      showError("screen2-error",
-        "No testimony documents, no testifier data, and no transcript. " +
-        "Please go back and check the bill number or paste a transcript."
-      );
-      return;
+  try {
+    const res = await fetch(`${API_BASE}/pipeline/full`, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        bill_id:           state.billNumber,
+        session:           state.session,
+        youtube_url:       "",
+        transcript:        state.transcript,
+        pdf_paths:         state.pdfPaths,
+        testimony_records: state.testimonyRecords,
+        memo_style:        state.memoStyle,
+      }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || `Server error: ${res.status}`);
     }
 
-    showScreen("loading");
+    const data = await res.json();
+    state.pipelineResult = data;
+    state.memo           = data.final_memo || "";
 
-    try {
-      const res = await fetch(`${API_BASE}/pipeline/full`, {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          bill_id:           state.billNumber,
-          youtube_url:       "",
-          transcript:        state.transcript,
-          pdf_paths:         state.pdfPaths,
-          testimony_records: state.testimonyRecords,   // ← passed to memo generator
-        }),
-      });
+    // Mark memo step done
+    const progMemo = document.getElementById("prog-memo");
+    progMemo.className = "done";
+    progMemo.querySelector(".icon").textContent = "✓";
 
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.detail || `Server error: ${res.status}`);
-      }
-
-      const data = await res.json();
-      state.pipelineResult = data;
-      state.memo           = data.final_memo || "";
-
-      // Mark memo step done
-      const progMemo = document.getElementById("prog-memo");
-      progMemo.className = "done";
-      progMemo.querySelector(".icon").textContent = "✓";
-
-      await new Promise(r => setTimeout(r, 500));
-      buildMemoScreen(data);
-      showScreen(3);
-
-    } catch (err) {
-      showScreen(2);
-      showError("screen2-error",
-        err.message.includes("fetch") || err.message.includes("Failed")
-          ? "Lost connection during memo generation. Check that uvicorn is still running."
-          : `Error: ${err.message}`
-      );
+    // Show drive step
+    const drive      = data.drive || {};
+    const progDrive  = document.getElementById("prog-drive");
+    const driveUrl   = drive.txt?.url || drive.docx?.url || "";
+    if (driveUrl) {
+      progDrive.className = "done";
+      progDrive.querySelector(".icon").textContent = "✓";
+    } else if (drive.txt?.skipped) {
+      progDrive.style.color = "#9ca3af";
+      progDrive.innerHTML   = `<span class="icon">○</span> Google Drive not configured`;
     }
+
+    await new Promise(r => setTimeout(r, 400));
+    buildMemoScreen(data);
+    showScreen(3);
+
+  } catch (err) {
+    showScreen(2);
+    showError("screen2-error",
+      err.message.includes("fetch") || err.message.includes("Failed")
+        ? "Lost connection during memo generation. Check that uvicorn is still running."
+        : `Error: ${err.message}`
+    );
+  }
+}
+
+// Build Screen 3
+function buildMemoScreen(data) {
+  const errors  = data.errors || [];
+  const total   = data.testifiers ?? state.testimonyRecords.length;
+  const apiUsed = data.api_used  || "AI";
+  const style   = (data.memo_style || state.memoStyle).replace(/_/g, " ");
+
+  const styleLabels = {
+    "full analysis":    "Full Analysis",
+    "quick summary":    "Quick Summary",
+    "amendments focus": "Amendments Focus",
+    "opposition report":"Opposition Report",
+  };
+
+  document.getElementById("memo-metadata").textContent =
+    `${state.billNumber} · ${state.session} · ` +
+    `${total} testifier(s) · ${state.pdfPaths.length} PDF(s) · ` +
+    `${styleLabels[style] || style}` +
+    // `${styleLabels[style] || style} · via ${apiUsed}` +
+    (state.transcript ? " · transcript included" : "");
+
+  const errEl = document.getElementById("memo-errors");
+  if (errors.length) {
+    errEl.innerHTML = `<strong>Note:</strong> ${errors.join("; ")}`;
+    errEl.classList.remove("hidden");
+  } else {
+    errEl.classList.add("hidden");
   }
 
-  function buildMemoScreen(data) {
-    const errors  = data.errors || [];
-    const total   = data.testifiers || state.testimonyRecords.length;
-    const apiUsed = data.api_used  || "AI";
+  document.getElementById("memo-text").textContent =
+    state.memo || "(Memo could not be generated. Check errors above.)";
 
-    document.getElementById("memo-metadata").textContent =
-      `${state.billNumber} · ${state.session} · ` +
-      `${total} testifier(s) · ${state.pdfPaths.length} PDF(s) · via ${apiUsed}` +
-      (state.transcript ? " · transcript included" : "");
-
-    const errEl = document.getElementById("memo-errors");
-    if (errors.length) {
-      errEl.innerHTML = `<strong>Note:</strong> ${errors.join("; ")}`;
-      errEl.classList.remove("hidden");
-    } else {
-      errEl.classList.add("hidden");
-    }
-
-    document.getElementById("memo-text").textContent =
-      state.memo || "(Memo could not be generated. Check errors above.)";
+  // Google Drive banner
+  const drive    = data.drive || {};
+  const driveUrl = drive.txt?.url || drive.docx?.url || "";
+  const driveBanner = document.getElementById("drive-banner");
+  if (driveUrl) {
+    document.getElementById("drive-link").href = driveUrl;
+    driveBanner.classList.remove("hidden");
+  } else {
+    driveBanner.classList.add("hidden");
   }
+}
 
-  function downloadMemo() {
-    if (!state.memo) return;
-    const blob = new Blob([state.memo], { type: "text/plain" });
+// Download + clipboard
+function downloadTxt() {
+  if (!state.memo) return;
+  const blob = new Blob([state.memo], { type: "text/plain" });
+  const url  = URL.createObjectURL(blob);
+  const a    = Object.assign(document.createElement("a"), { href: url, download: `memo_${state.billNumber}_${state.session}.txt` });
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function downloadDocx() {
+  try {
+    const res = await fetch(`${API_BASE}/download/docx/${state.billNumber}`);
+    if (!res.ok) throw new Error(`Server returned ${res.status}`);
+    const blob = await res.blob();
     const url  = URL.createObjectURL(blob);
-    const a    = document.createElement("a");
-    a.href     = url;
-    a.download = `memo_${state.billNumber}_${state.session}.txt`;
+    const a    = Object.assign(document.createElement("a"), {
+      href: url,
+      download: `memo_${state.billNumber}_${state.session}.docx`,
+    });
     a.click();
     URL.revokeObjectURL(url);
+  } catch (e) {
+    alert(`Word download error: ${e.message}`);
   }
+}
+
+async function copyMemo() {
+  if (!state.memo) return;
+  try {
+    await navigator.clipboard.writeText(state.memo);
+    flashBtn("btn-copy", "✓ Copied!");
+  } catch {
+    fallbackCopy(state.memo);
+    flashBtn("btn-copy", "✓ Copied!");
+  }
+}
+
+function flashBtn(id, label, ms = 2000) {
+  const btn = document.getElementById(id);
+  const orig = btn.textContent;
+  btn.textContent = label;
+  setTimeout(() => btn.textContent = orig, ms);
+}
+
+function fallbackCopy(text) {
+  const ta = document.createElement("textarea");
+  ta.value = text;
+  ta.style.position = "fixed";
+  ta.style.opacity  = "0";
+  document.body.appendChild(ta);
+  ta.select();
+  document.execCommand("copy");
+  document.body.removeChild(ta);
+}
+
+// Start over
+function startOver() {
+  state = {
+    inputMode: "auto", memoStyle: "full_analysis",
+    billNumber: "", session: "2026RS",
+    videoUrl: "", transcript: "",
+    pdfPaths: [], testimonyRecords: [], documentsFound: [],
+    source: "scraper", memo: "", pipelineResult: null,
+    historyMemos: [], compareSelected: state.compareSelected, comparisonText: "",
+  };
+  uploadedFiles = [];
+  document.getElementById("bill-number-input").value  = "";
+  document.getElementById("video-url-input").value    = "";
+  document.getElementById("transcript-input").value   = "";
+  document.getElementById("upload-bill-id").value     = "";
+  document.getElementById("file-list").innerHTML      = "";
+  document.getElementById("bill-preview").style.display = "none";
+  hideError("screen1-error");
+  setInputMode("auto");
+  // Reset style selection
+  document.querySelectorAll(".style-card").forEach(c => c.classList.remove("selected"));
+  document.querySelector('.style-card[data-style="full_analysis"]').classList.add("selected");
+  showScreen(1);
+}
+
+// ── HISTORY ───────────────────────────────────────────────────────────────
+async function loadHistory() {
+  const grid = document.getElementById("history-grid");
+  grid.innerHTML = '<p style="color:#9ca3af;text-align:center;padding:40px;grid-column:1/-1;">Loading…</p>';
+  try {
+    const res  = await fetch(`${API_BASE}/memos`);
+    const data = await res.json();
+    state.historyMemos = data.memos || [];
+    renderHistory(state.historyMemos);
+  } catch (e) {
+    grid.innerHTML = `<p style="color:#991b1b;grid-column:1/-1;">Could not load history: ${e.message}</p>`;
+  }
+}
+
+function renderHistory(memos) {
+  const grid = document.getElementById("history-grid");
+  if (!memos.length) {
+    grid.innerHTML = `<p style="color:#9ca3af;text-align:center;padding:40px;grid-column:1/-1;">
+      No memos generated yet. Start a New Analysis.
+    </p>`;
+    return;
+  }
+
+  const styleLabel = {
+    full_analysis:    "Full Analysis",
+    quick_summary:    "Quick Summary",
+    amendments_focus: "Amendments Focus",
+    opposition_report:"Opposition Report",
+  };
+
+  grid.innerHTML = memos.map(m => {
+    const isSelected = state.compareSelected.includes(m.bill_id);
+    return `
+      <div class="history-card" id="hcard-${escapeHtml(m.bill_id)}">
+        <div class="history-card-top">
+          <div>
+            <div class="history-bill">${escapeHtml(m.bill_id)}</div>
+            <div class="history-session">${escapeHtml(m.session)}</div>
+          </div>
+          <span class="history-style">${escapeHtml(styleLabel[m.memo_style] || m.memo_style || "")}</span>
+        </div>
+        <div class="history-meta">
+          ${m.testifiers ? `${m.testifiers} testifiers · ` : ""}
+          ${m.api_used ? `via ${m.api_used} · ` : ""}
+          ${formatDate(m.generated_at)}
+        </div>
+        <p class="history-preview">${escapeHtml(m.preview || "")}</p>
+        <div class="history-actions">
+          <button class="btn btn-secondary btn-sm" onclick="viewMemo('${escapeHtml(m.bill_id)}')">
+            View Memo
+          </button>
+          ${m.drive_url ? `<a class="drive-link" href="${escapeHtml(m.drive_url)}" target="_blank" rel="noopener">📁 Drive</a>` : ""}
+          <label class="compare-check">
+            <input type="checkbox" id="cmp-${escapeHtml(m.bill_id)}"
+              ${isSelected ? "checked" : ""}
+              onchange="toggleCompareSelect('${escapeHtml(m.bill_id)}')">
+            Compare
+          </label>
+        </div>
+      </div>`;
+  }).join("");
+}
+
+function filterHistory() {
+  const q = document.getElementById("history-search").value.toLowerCase();
+  document.querySelectorAll(".history-card").forEach(card => {
+    const text = card.textContent.toLowerCase();
+    card.style.display = !q || text.includes(q) ? "" : "none";
+  });
+}
+
+async function viewMemo(billId) {
+  try {
+    const res  = await fetch(`${API_BASE}/memos/${encodeURIComponent(billId)}`);
+    if (!res.ok) throw new Error("Memo not found");
+    const data = await res.json();
+
+    setNavMode("analysis");
+    state.billNumber      = data.bill_id;
+    state.session         = data.metadata?.session || "";
+    state.memo            = data.memo;
+    state.pdfPaths        = [];
+    state.testimonyRecords = [];
+    state.pipelineResult  = {
+      final_memo: data.memo,
+      testifiers: data.metadata?.testifiers || 0,
+      api_used:   data.metadata?.api_used || "",
+      memo_style: data.metadata?.memo_style || "full_analysis",
+      errors:     [],
+      drive:      { txt: { url: data.metadata?.drive_url || "" } },
+    };
+
+    buildMemoScreen(state.pipelineResult);
+    showScreen(3);
+  } catch (e) {
+    alert(`Could not load memo: ${e.message}`);
+  }
+}
+
+// Compare selection
+function toggleCompareSelect(billId) {
+  const cb = document.getElementById(`cmp-${billId}`);
+  if (cb.checked) {
+    if (state.compareSelected.length >= 4) {
+      cb.checked = false;
+      alert("You can compare up to 4 bills at a time.");
+      return;
+    }
+    if (!state.compareSelected.includes(billId)) {
+      state.compareSelected.push(billId);
+    }
+  } else {
+    state.compareSelected = state.compareSelected.filter(id => id !== billId);
+  }
+  updateCompareBar();
+}
+
+function updateCompareBar() {
+  const bar   = document.getElementById("compare-bar");
+  const pills = document.getElementById("compare-pills");
+  const goBtn = document.getElementById("btn-go-compare");
+
+  if (!state.compareSelected.length) {
+    bar.classList.add("hidden");
+    return;
+  }
+
+  bar.classList.remove("hidden");
+  pills.innerHTML = state.compareSelected.map(id => `
+    <span class="compare-pill" style="margin:0 4px;">
+      ${escapeHtml(id)}
+      <button onclick="removePill('${escapeHtml(id)}')" title="Remove">×</button>
+    </span>`
+  ).join("");
+  goBtn.disabled = state.compareSelected.length < 2;
+  goBtn.textContent = state.compareSelected.length < 2
+    ? "Compare Bills (need ≥ 2)"
+    : `Compare ${state.compareSelected.length} Bills`;
+}
+
+function removePill(billId) {
+  state.compareSelected = state.compareSelected.filter(id => id !== billId);
+  const cb = document.getElementById(`cmp-${billId}`);
+  if (cb) cb.checked = false;
+  updateCompareBar();
+}
+
+function goToCompare() {
+  setNavMode("compare");
+}
+
+// ── COMPARE ───────────────────────────────────────────────────────────────
+function renderCompareScreen() {
+  const listEl   = document.getElementById("compare-selected-list");
+  const emptyEl  = document.getElementById("compare-empty");
+  const actionEl = document.getElementById("compare-action-row");
+
+  if (!state.compareSelected.length) {
+    listEl.innerHTML = "";
+    emptyEl.classList.remove("hidden");
+    actionEl.classList.add("hidden");
+    return;
+  }
+
+  emptyEl.classList.add("hidden");
+  actionEl.classList.remove("hidden");
+  listEl.innerHTML = `
+    <p style="font-size:0.86rem;color:#6b7280;margin-bottom:8px;">Comparing:</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+      ${state.compareSelected.map(id => `
+        <span class="compare-pill">
+          ${escapeHtml(id)}
+          <button onclick="removePill('${escapeHtml(id)}');renderCompareScreen();" title="Remove">×</button>
+        </span>`
+      ).join("")}
+    </div>`;
+
+  // Reset result area
+  document.getElementById("compare-result-wrap").classList.add("hidden");
+  document.getElementById("compare-loading").classList.add("hidden");
+  document.getElementById("btn-run-compare").disabled = false;
+}
+
+async function runCompare() {
+  if (state.compareSelected.length < 2) return;
+
+  document.getElementById("compare-loading").classList.remove("hidden");
+  document.getElementById("btn-run-compare").disabled = true;
+  document.getElementById("compare-result-wrap").classList.add("hidden");
+
+  try {
+    const res = await fetch(`${API_BASE}/compare`, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ bill_ids: state.compareSelected }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || `Server error: ${res.status}`);
+    }
+
+    const data = await res.json();
+    state.comparisonText = data.comparison || "";
+
+    document.getElementById("compare-result").textContent = state.comparisonText;
+    document.getElementById("compare-meta").textContent =
+      `${data.bill_ids.join(" vs. ")} · via ${data.api_used}`;
+    document.getElementById("compare-result-wrap").classList.remove("hidden");
+
+  } catch (e) {
+    document.getElementById("compare-result").textContent = `Error: ${e.message}`;
+    document.getElementById("compare-result-wrap").classList.remove("hidden");
+  } finally {
+    document.getElementById("compare-loading").classList.add("hidden");
+    document.getElementById("btn-run-compare").disabled = false;
+  }
+}
+
+function downloadComparison() {
+  if (!state.comparisonText) return;
+  const label = state.compareSelected.join("_vs_");
+  const blob  = new Blob([state.comparisonText], { type: "text/plain" });
+  const url   = URL.createObjectURL(blob);
+  const a     = Object.assign(document.createElement("a"), { href: url, download: `comparison_${label}.txt` });
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function copyComparison() {
+  if (!state.comparisonText) return;
+  try {
+    await navigator.clipboard.writeText(state.comparisonText);
+    flashBtn("btn-copy-compare", "✓ Copied!");
+  } catch {
+    fallbackCopy(state.comparisonText);
+    flashBtn("btn-copy-compare", "✓ Copied!");
+  }
+}
 </script>
 </body>
 </html>

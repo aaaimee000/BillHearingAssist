@@ -328,24 +328,24 @@ class FloorScraperPlugin(BasePlugin):
         # Bill text PDF is at: mgaleg.maryland.gov/{session}/bills/{chamber}/{billT.pdf}
         bill_lower = bill_id.lower()
         match = re.match(r'^([a-z]+)(\d+)$', bill_lower)
-        if match:
-            chamber = match.group(1)
-            num     = match.group(2).zfill(4)
-            bill_text_url = (
-                f"https://mgaleg.maryland.gov/{session_year}/bills/{chamber}/{chamber}{num}T.pdf"
-            )
-            print(f"[FloorScraper] Downloading bill text: {bill_text_url}")
-            try:
-                r = http_session.get(bill_text_url, timeout=30, verify=False)
-                if r.status_code == 200 and "pdf" in r.headers.get("content-type", "").lower():
-                    bill_text_path = output_dir / f"{bill_id}_bill_text.pdf"
-                    bill_text_path.write_bytes(r.content)
-                    # Bill text is NOT included in testimony_records (it's the bill, not testimony)
-                    print(f"[FloorScraper] Bill text saved: {bill_text_path}")
-                else:
-                    errors.append(f"Bill text not found (HTTP {r.status_code})")
-            except Exception as e:
-                errors.append(f"Bill text download failed: {e}")
+        # if match:
+        #     chamber = match.group(1)
+        #     num     = match.group(2).zfill(4)
+        #     bill_text_url = (
+        #         f"https://mgaleg.maryland.gov/{session_year}/bills/{chamber}/{chamber}{num}T.pdf"
+        #     )
+        #     print(f"[FloorScraper] Downloading bill text: {bill_text_url}")
+        #     try:
+        #         r = http_session.get(bill_text_url, timeout=30, verify=False)
+        #         if r.status_code == 200 and "pdf" in r.headers.get("content-type", "").lower():
+        #             bill_text_path = output_dir / f"{bill_id}_bill_text.pdf"
+        #             bill_text_path.write_bytes(r.content)
+        #             # Bill text is NOT included in testimony_records (it's the bill, not testimony)
+        #             print(f"[FloorScraper] Bill text saved: {bill_text_path}")
+        #         else:
+        #             errors.append(f"Bill text not found (HTTP {r.status_code})")
+        #     except Exception as e:
+        #         errors.append(f"Bill text download failed: {e}")
 
         # ── Step 3: Scrape details page for testimony PDF links ───────────────
         testimony_records_raw = scrape_details_html(http_session, bill_id, session_year)

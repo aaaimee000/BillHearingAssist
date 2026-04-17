@@ -1,0 +1,10 @@
+{
+  "bill_id": "UPLOAD",
+  "session": "2026RS",
+  "generated_at": "2026-04-07T12:34:21.585023",
+  "testifiers": 8,
+  "pdf_count": 1,
+  "api_used": "openai",
+  "memo_style": "quick_summary",
+  "drive_url": ""
+}
