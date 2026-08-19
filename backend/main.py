@@ -23,6 +23,7 @@ from pathlib import Path
 from datetime import datetime
 from typing import List
 
+<<<<<<< HEAD
 
 # ─────────────────────────────────────────────────────────────────────────────
 # PDF Testifier Extractor
@@ -116,6 +117,9 @@ from pydantic import BaseModel
 from backend.plugins.registry import REGISTRY
 from backend.plugins.drive_uploader import upload_to_drive
 from backend.plugins.docx_generator import generate_docx_buffer
+=======
+from backend.plugins.registry import REGISTRY
+>>>>>>> abee9e6 (main.py and index.html)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # App setup
